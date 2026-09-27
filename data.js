@@ -44,7 +44,11 @@ function friendly(error) {
 // ---------------------------------------------------------------------------
 async function createLive() {
   const { createClient } = await import(SUPABASE_JS);
-  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // Accept common copy-paste mistakes: trailing slash, "/rest/v1", spaces.
+  const url = SUPABASE_URL.trim().replace(/\/(rest|auth)\/v1\/?.*$/, "").replace(/\/+$/, "");
+  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url))
+    throw new Error(`SUPABASE_URL in js/config.js should look like https://abcdefgh.supabase.co (it is "${SUPABASE_URL}").`);
+  const sb = createClient(url, SUPABASE_ANON_KEY.trim());
 
   const check = ({ data, error, count }) => {
     if (error) throw friendly(error);

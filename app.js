@@ -210,7 +210,7 @@ function renderJoin() {
   }
 
   if (j.stage === "email") {
-    box.innerHTML = `<h1>Join abroadboard</h1><p>Use your University of Auckland student email. We'll send you a 6-digit code, so there's no password to remember.</p>
+    box.innerHTML = `<h1>Join abroadboard</h1><p>Use your University of Auckland student email. We'll email you a sign-in link, so there's no password to remember.</p>
       <form id="joinForm" novalidate>
         <div class="field"><label for="jEmail">UoA email</label><input id="jEmail" type="email" autocomplete="email" placeholder="name@${ALLOWED_DOMAIN}" value="${esc(j.email)}">
           <span class="hint">Must end in @${ALLOWED_DOMAIN}</span></div>
