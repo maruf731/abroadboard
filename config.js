@@ -7,7 +7,7 @@
 //
 // While these are empty, the site runs in DEMO MODE: sample data, saved only in the visitor's browser.
 
-export const SUPABASE_URL = "https://sjjjdjbkobszsqxzasjr.supabase.co/rest/v1/";
+export const SUPABASE_URL = "https://sjjjdjbkobszsqxzasjr.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_4tKG3rq75xrz-nzTLNL0ww_fYO7Ms3l";
 
 // Student email domain allowed to sign up and post. Keep in sync with
