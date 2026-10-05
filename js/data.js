@@ -1,15 +1,18 @@
 // Data layer. The rest of the site only talks to the object returned by
 // createBackend(), so it works the same with Supabase ("live") or without it ("demo").
 
-import { SUPABASE_URL, SUPABASE_ANON_KEY, ALLOWED_DOMAIN, EXPIRY_DAYS } from "./config.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, ALLOWED_DOMAINS, EXPIRY_DAYS, PRIVACY_VERSION } from "./config.js";
 
 const SUPABASE_JS = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm";
 const DAY = 864e5;
 
-export function isUoaEmail(email) {
-  const domain = ALLOWED_DOMAIN.replace(/\./g, "\\.");
-  return new RegExp(`^[^\\s@]+@${domain}$`, "i").test(String(email).trim());
+// True when the email belongs to one of the allowed institutions (exact domain match).
+export function isStudentEmail(email) {
+  const m = /^[^\s@]+@([^\s@]+)$/.exec(String(email).trim().toLowerCase());
+  return !!m && ALLOWED_DOMAINS.includes(m[1]);
 }
+
+const NOT_STUDENT = "Use your student email from one of the Auckland institutions listed below.";
 
 // Today's date as YYYY-MM-DD in the visitor's own time zone.
 export function todayISO() {
@@ -27,8 +30,8 @@ function friendly(error) {
   const msg = (error && (error.message || error.error_description)) || String(error);
   const rules = [
     [/rate limit|too many|security purposes/i, "Too many attempts. Wait a minute and try again."],
-    [/University of Auckland|aucklanduni/i, `Use your University of Auckland student email (@${ALLOWED_DOMAIN}).`],
-    [/row-level security|permission denied/i, `Only signed-in students with an @${ALLOWED_DOMAIN} email can do that.`],
+    [/student email/i, NOT_STUDENT],
+    [/row-level security|permission denied/i, "Only signed-in students with an accepted student email can do that."],
     [/token has expired|invalid.*(token|otp|code)|(otp|token).*(invalid|expired)/i, "That code is wrong or has expired. Request a new code and try again."],
     [/error sending|smtp|email address not authorized/i, "We couldn't send the email. The site's email service isn't set up yet (see README, step 4)."],
     [/signups not allowed/i, "New sign-ups are switched off at the moment."],
@@ -83,7 +86,12 @@ async function createLive() {
       // to this page already signed in. (If the email template shows {{ .Token }}, the code works too.)
       const { error } = await sb.auth.signInWithOtp({
         email,
-        options: { shouldCreateUser: true, emailRedirectTo: window.location.origin + window.location.pathname },
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: window.location.origin + window.location.pathname,
+          // Saved on the new account; the database records when consent was given.
+          data: { privacy_consent: true, privacy_version: PRIVACY_VERSION },
+        },
       });
       if (error) throw friendly(error);
     },
@@ -188,7 +196,7 @@ function createDemo() {
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* storage blocked: keep in memory */ } };
   const expire = () => { const cutoff = Date.now() - EXPIRY_DAYS * DAY; S.posts = S.posts.filter((p) => p.createdAt > cutoff); };
   const notify = () => listeners.forEach((cb) => setTimeout(cb, 0));
-  const me = () => { if (!S.user) throw new Error(`Sign in with your @${ALLOWED_DOMAIN} email first.`); return S.user; };
+  const me = () => { if (!S.user) throw new Error("Sign in with your student email first."); return S.user; };
   const wait = () => new Promise((r) => setTimeout(r, 150)); // feels like a network call
   load(); expire(); save();
 
@@ -196,7 +204,7 @@ function createDemo() {
     mode: "demo",
     async currentUser() { return S.user ? { ...S.user, isAdmin: !!S.admin } : null; },
     onAuthChange(cb) { listeners.push(cb); },
-    async sendCode(email) { await wait(); if (!isUoaEmail(email)) throw new Error(`Use your University of Auckland student email (@${ALLOWED_DOMAIN}).`); },
+    async sendCode(email) { await wait(); if (!isStudentEmail(email)) throw new Error(NOT_STUDENT); },
     async verifyCode(email, token) {
       await wait();
       if (!/^\d{6}$/.test(token)) throw new Error("That code is wrong or has expired. Request a new code and try again.");

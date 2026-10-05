@@ -10,7 +10,9 @@
 --   reports   "Report" clicks on posts, visible to admins     (Story 8)
 --
 -- Rules it enforces on the server (not just in the browser)
---   * Only @aucklanduni.ac.nz accounts can post, list events or report (Story 6)
+--   * Only student emails from the accepted Auckland institutions can post,
+--     list events or report (Story 6). The list is in allowed_email_domains().
+--   * Each new account records when it agreed to the privacy notice
 --   * Anyone can read; people can delete their own posts; admins can delete any (Story 3)
 --   * Posts older than 21 days are hidden at once and deleted hourly (Story 10)
 --   * Users cannot make themselves admin or back-date their posts
@@ -21,16 +23,42 @@
 -- 1. Helper functions
 -- ---------------------------------------------------------------------------
 
--- The allowed student email domain. Change it here if the rules change.
-create or replace function public.allowed_email_domain()
-returns text language sql immutable as $$ select 'aucklanduni.ac.nz'::text $$;
+-- Allowed student email domains. Keep in sync with INSTITUTIONS in js/config.js.
+create or replace function public.allowed_email_domains()
+returns text[] language sql immutable as $$
+  select array[
+    'aucklanduni.ac.nz', 'uoa.auckland.ac.nz',   -- University of Auckland
+    'autuni.ac.nz',                              -- AUT
+    'massey.ac.nz',                              -- Massey University (Albany)
+    'myunitec.ac.nz',                            -- Unitec
+    'manukaumail.com',                           -- Manukau Institute of Technology
+    'student.yoobee.ac.nz',                      -- Yoobee College
+    'nzst.ac.nz',                                -- NZ School of Tourism
+    'ess.ais.ac.nz',                             -- Auckland Institute of Studies
+    'nztertiarycollege.ac.nz',                   -- NZ Tertiary College
+    'nzma.ac.nz',                                -- NZMA
+    'nzse.ac.nz',                                -- NZ Skills and Education College
+    'acts.ac.nz',                                -- Auckland College of Tertiary Studies
+    'imperial.ac.nz',                            -- Imperial College of NZ
+    'ica.ac.nz',                                 -- International College of Auckland
+    'crown.ac.nz',                               -- Crown Institute of Studies
+    'nzios.ac.nz'                                -- NZ Institute of Studies
+  ]::text[]
+$$;
 
--- True when the signed-in user's email ends with the allowed domain.
-create or replace function public.is_uoa()
-returns boolean language sql stable as $$
+-- True when an email address belongs to one of the allowed domains (exact match).
+create or replace function public.is_student_email(email text)
+returns boolean language sql immutable as $$
   select coalesce(
-    lower(auth.jwt() ->> 'email') like '%@' || public.allowed_email_domain(),
+    lower(split_part(email, '@', 2)) = any (public.allowed_email_domains())
+      and email like '%_@_%',
     false)
+$$;
+
+-- True when the signed-in user has an allowed student email.
+create or replace function public.is_student()
+returns boolean language sql stable as $$
+  select public.is_student_email(auth.jwt() ->> 'email')
 $$;
 
 
@@ -47,6 +75,10 @@ create table if not exists public.profiles (
   created_at    timestamptz not null default now()
 );
 
+-- Record of privacy-notice consent, filled in when the account is created.
+alter table public.profiles add column if not exists privacy_consent_at timestamptz;
+alter table public.profiles add column if not exists privacy_version text;
+
 -- True when the signed-in user is an admin. SECURITY DEFINER so it can read
 -- profiles without tripping the table's own security rules.
 create or replace function public.is_admin()
@@ -60,8 +92,12 @@ $$;
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
-  insert into public.profiles (id, display_name)
-  values (new.id, left(coalesce(nullif(split_part(new.email, '@', 1), ''), 'Student'), 40))
+  insert into public.profiles (id, display_name, privacy_consent_at, privacy_version)
+  values (
+    new.id,
+    left(coalesce(nullif(split_part(new.email, '@', 1), ''), 'Student'), 40),
+    case when new.raw_user_meta_data ->> 'privacy_consent' = 'true' then now() end,
+    left(new.raw_user_meta_data ->> 'privacy_version', 20))
   on conflict (id) do nothing;
   return new;
 end;
@@ -117,9 +153,10 @@ create policy "Recent posts are readable by everyone"
   using (created_at > now() - interval '21 days');
 
 drop policy if exists "UoA students create their own posts" on public.posts;
-create policy "UoA students create their own posts"
+drop policy if exists "Students create their own posts" on public.posts;
+create policy "Students create their own posts"
   on public.posts for insert to authenticated
-  with check (author_id = auth.uid() and public.is_uoa());
+  with check (author_id = auth.uid() and public.is_student());
 
 drop policy if exists "Authors and admins delete posts" on public.posts;
 create policy "Authors and admins delete posts"
@@ -168,9 +205,10 @@ create policy "Hosts see their own events"
   using (host_id = auth.uid() or public.is_admin());
 
 drop policy if exists "UoA students create events" on public.events;
-create policy "UoA students create events"
+drop policy if exists "Students create events" on public.events;
+create policy "Students create events"
   on public.events for insert to authenticated
-  with check (host_id = auth.uid() and public.is_uoa()
+  with check (host_id = auth.uid() and public.is_student()
               and event_date >= current_date and event_date <= current_date + 365);
 
 drop policy if exists "Hosts and admins delete events" on public.events;
@@ -204,7 +242,7 @@ alter table public.reports enable row level security;
 drop policy if exists "Students report posts" on public.reports;
 create policy "Students report posts"
   on public.reports for insert to authenticated
-  with check (reporter_id = auth.uid() and public.is_uoa());
+  with check (reporter_id = auth.uid() and public.is_student());
 
 -- Students see their own reports (so the button shows "Reported");
 -- admins see every report.
@@ -224,29 +262,34 @@ grant insert (post_id, reason) on public.reports to authenticated;
 
 
 -- ---------------------------------------------------------------------------
--- 6. Block non-UoA sign-ups (optional but recommended)
+-- 6. Block sign-ups from other email domains (optional but recommended)
 -- After running this file, turn it on in:
 --   Authentication > Hooks > Before User Created > Postgres > public.hook_uoa_only
+-- (The name is kept from the first version so an existing hook keeps working.)
 -- Without it, anyone can create an account but still cannot post (rules above).
 -- ---------------------------------------------------------------------------
 
 create or replace function public.hook_uoa_only(event jsonb)
 returns jsonb language plpgsql as $$
 begin
-  if lower(coalesce(event -> 'user' ->> 'email', ''))
-       like '%@' || public.allowed_email_domain() then
+  if public.is_student_email(event -> 'user' ->> 'email') then
     return '{}'::jsonb;
   end if;
   return jsonb_build_object('error', jsonb_build_object(
-    'message', 'Use your University of Auckland student email (@aucklanduni.ac.nz).',
+    'message', 'Use your student email from one of the accepted Auckland institutions.',
     'http_code', 403));
 end;
 $$;
 
 grant usage on schema public to supabase_auth_admin;
 grant execute on function public.hook_uoa_only(jsonb) to supabase_auth_admin;
-grant execute on function public.allowed_email_domain() to supabase_auth_admin;
+grant execute on function public.allowed_email_domains() to supabase_auth_admin;
+grant execute on function public.is_student_email(text) to supabase_auth_admin;
 revoke execute on function public.hook_uoa_only(jsonb) from authenticated, anon, public;
+
+-- Functions from the first version, no longer used by any rule.
+drop function if exists public.is_uoa();
+drop function if exists public.allowed_email_domain();
 
 
 -- ---------------------------------------------------------------------------

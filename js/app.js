@@ -1,12 +1,12 @@
 // abroadboard UI. All data goes through ./data.js, so this file doesn't care
 // whether Supabase is connected (live) or not (demo).
 
-import { createBackend, isUoaEmail, todayISO } from "./data.js";
-import { ALLOWED_DOMAIN, EXPIRY_DAYS, EVENT_FEE_NZD } from "./config.js";
+import { createBackend, isStudentEmail, todayISO } from "./data.js";
+import { INSTITUTIONS, EXPIRY_DAYS, EVENT_FEE_NZD, PRIVACY_VERSION, PRIVACY_CONTACT } from "./config.js";
 
 const DAY = 864e5;
 const CATEGORIES = ["Meetups", "Housing", "Buy & sell", "Study buddies", "Help"]; // Story 7
-const VIEWS = ["board", "events", "campus", "food", "join"];
+const VIEWS = ["board", "events", "campus", "food", "join", "privacy"];
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -18,7 +18,7 @@ const state = {
   errors: {},
   filter: "All", query: "",
   confirmDelete: null, // "post:12" or "event:4" while waiting for a second click
-  join: { stage: "email", email: "", name: "", country: "", error: "", busy: false },
+  join: { stage: "email", email: "", name: "", country: "", consent: false, error: "", busy: false },
   afterJoin: null,
 };
 
@@ -186,6 +186,39 @@ function renderFood() {
     <div class="post-foot"><span class="price">${esc(f.price || "")}</span><span class="grow"></span>${deleteControl("post", f.id, f.authorId)}</div></article>`).join("");
 }
 
+// ---------------------------------------------------------------- privacy notice
+const privacyContact = () => PRIVACY_CONTACT
+  ? `email <a href="mailto:${esc(PRIVACY_CONTACT)}">${esc(PRIVACY_CONTACT)}</a>`
+  : "contact the abroadboard admins";
+
+function privacyNotice() {
+  return `<h3>What we collect</h3>
+    <ul>
+      <li>Your student email address, used only to sign you in and to check that you study at an accepted Auckland institution.</li>
+      <li>The display name you choose and, if you add it, your home country. Both appear on your posts.</li>
+      <li>What you post: board posts, food tips, events and reports, including any contact details you type into a post.</li>
+    </ul>
+    <h3>Who can see it</h3>
+    <ul>
+      <li>Posts, events, your display name and home country are public on this site.</li>
+      <li>Your email address is never shown publicly unless you put it in a post's contact field.</li>
+      <li>Reports are seen only by you and the site admins.</li>
+    </ul>
+    <h3>Where it's kept and for how long</h3>
+    <ul>
+      <li>Data is stored with Supabase in its Sydney, Australia region. The site is hosted by Vercel.</li>
+      <li>Posts are deleted automatically after ${EXPIRY_DAYS} days, and events about a week after they happen.</li>
+      <li>Your account stays until you ask us to delete it.</li>
+    </ul>
+    <h3>Your rights</h3>
+    <p>Under the New Zealand Privacy Act 2020 you can ask to see, correct or delete your information at any time. To do that, ${privacyContact()}. We don't sell your data or use it for advertising profiles.</p>
+    <p class="muted">Notice version ${esc(PRIVACY_VERSION)}</p>`;
+}
+
+const institutionList = () => `<details class="domains"><summary>Accepted student emails (${INSTITUTIONS.length} institutions)</summary><ul>${
+  INSTITUTIONS.map((i) => `<li><b>${esc(i.name)}</b> <span>${i.domains.map((d) => "@" + esc(d)).join(" or ")}</span></li>`).join("")
+}</ul></details>`;
+
 // ---------------------------------------------------------------- join / account (Story 6)
 function renderJoin() {
   const box = $("#joinBox"), j = state.join;
@@ -210,21 +243,26 @@ function renderJoin() {
   }
 
   if (j.stage === "email") {
-    box.innerHTML = `<h1>Join abroadboard</h1><p>Use your University of Auckland student email. We'll email you a sign-in link, so there's no password to remember.</p>
+    box.innerHTML = `<h1>Join abroadboard</h1><p>Use your student email from an Auckland university or college. We'll email you a sign-in link, so there's no password to remember.</p>
       <form id="joinForm" novalidate>
-        <div class="field"><label for="jEmail">UoA email</label><input id="jEmail" type="email" autocomplete="email" placeholder="name@${ALLOWED_DOMAIN}" value="${esc(j.email)}">
-          <span class="hint">Must end in @${ALLOWED_DOMAIN}</span></div>
+        <div class="field"><label for="jEmail">Student email</label><input id="jEmail" type="email" autocomplete="email" placeholder="you@aucklanduni.ac.nz" value="${esc(j.email)}">
+          ${institutionList()}</div>
         <div class="row2">
           <div class="field"><label for="jName">Display name</label><input id="jName" maxlength="40" placeholder="e.g. Mei" value="${esc(j.name)}"></div>
           <div class="field"><label for="jCountry">Home country</label><input id="jCountry" maxlength="40" placeholder="Optional" value="${esc(j.country)}"></div>
         </div>
+        <div class="privacy-box" id="privacyBox"><h2>Privacy notice</h2>${privacyNotice()}</div>
+        <label class="consent"><input type="checkbox" id="jConsent" ${j.consent ? "checked" : ""}>
+          <span>I have read the privacy notice and agree to abroadboard collecting and using my information as described.</span></label>
         ${j.error ? `<p class="err">${esc(j.error)}</p>` : ""}
-        <div class="actions"><button class="btn btn-primary" type="submit" ${j.busy ? "disabled" : ""}>${j.busy ? "Sending…" : "Send my code"}</button></div>
+        <div class="actions"><button class="btn btn-primary" type="submit" id="jSubmit" ${j.busy || !j.consent ? "disabled" : ""}>${j.busy ? "Sending…" : "I agree, send my sign-in link"}</button></div>
       </form>`;
+    $("#jConsent").onchange = (e) => { j.consent = e.target.checked; $("#jSubmit").disabled = j.busy || !j.consent; };
     $("#joinForm").onsubmit = async (e) => {
       e.preventDefault();
-      Object.assign(j, { email: $("#jEmail").value.trim(), name: $("#jName").value.trim(), country: $("#jCountry").value.trim(), error: "" });
-      if (!isUoaEmail(j.email)) { j.error = `That isn't a UoA student email. Use the address ending in @${ALLOWED_DOMAIN}.`; renderJoin(); $("#jEmail").focus(); return; }
+      Object.assign(j, { email: $("#jEmail").value.trim(), name: $("#jName").value.trim(), country: $("#jCountry").value.trim(), consent: $("#jConsent").checked, error: "" });
+      if (!isStudentEmail(j.email)) { j.error = "That email isn't from an accepted institution. Open the list under the email box to see which addresses work."; renderJoin(); $("#jEmail").focus(); return; }
+      if (!j.consent) { j.error = "Tick the box to agree to the privacy notice before joining."; renderJoin(); $("#jConsent").focus(); return; }
       j.busy = true; renderJoin();
       savePending({ email: j.email, name: j.name, country: j.country });
       try { await db.sendCode(j.email); j.stage = "code"; }
@@ -252,7 +290,7 @@ function renderJoin() {
         await db.verifyCode(j.email, code);
         const u = await db.currentUser();
         if (u && (j.name || j.country)) await db.updateProfile(u.id, { name: j.name, country: j.country });
-        state.join = { stage: "email", email: "", name: "", country: "", error: "", busy: false };
+        state.join = { stage: "email", email: "", name: "", country: "", consent: false, error: "", busy: false };
         await refreshUser(); loadReports();
         toast("Email verified. Welcome to abroadboard!");
         const next = state.afterJoin; state.afterJoin = null;
@@ -271,7 +309,7 @@ function openDialog(kind) {
   if (!state.user) {
     state.afterJoin = { kind, view: kind === "post" ? "board" : kind === "event" ? "events" : "food" };
     location.hash = "#join";
-    toast(`Sign in with your @${ALLOWED_DOMAIN} email to post`);
+    toast("Sign in with your student email to post");
     return;
   }
   let html;
@@ -372,6 +410,7 @@ window.addEventListener("hashchange", () => { route(); window.scrollTo(0, 0); })
 // ---------------------------------------------------------------- start
 async function start() {
   route();
+  $("#privacyPage").innerHTML = privacyNotice();
   try { db = await createBackend(); }
   catch (e) {
     $("#feedList").innerHTML = `<div class="error-box"><b>The site couldn't start.</b> ${esc(e.message)}</div>`;

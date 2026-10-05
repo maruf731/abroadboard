@@ -164,6 +164,21 @@ code.room{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media (max-width:520px){.row2{grid-template-columns:1fr}}
 .err{color:var(--accent-text);font-size:13px;font-weight:700}
+/* Accepted institutions, privacy notice and consent (Join page) */
+.domains{font-size:13px;color:var(--muted)}
+.domains summary{cursor:pointer;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.domains ul{margin:8px 0 0;padding:10px 12px;list-style:none;background:var(--surface-2);border-radius:10px;max-height:220px;overflow:auto}
+.domains li{padding:3px 0;display:flex;flex-wrap:wrap;gap:2px 8px;color:var(--ink)}
+.domains li span{color:var(--muted);overflow-wrap:anywhere}
+.privacy-box{margin:16px 0 12px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--bg);max-height:240px;overflow:auto;font-size:14px}
+.privacy-box h2{font-size:17px;margin:0 0 6px}
+.privacy-box h3,.privacy-page h3{font-size:15px;margin:14px 0 4px}
+.privacy-box ul,.privacy-page ul{margin:0;padding-left:20px}
+.privacy-box p,.privacy-page p{margin:6px 0}
+.privacy-page{max-width:640px}
+.privacy-page h1{margin-bottom:10px}
+.consent{display:flex;gap:10px;align-items:flex-start;font-size:14px;margin:4px 0 12px;cursor:pointer}
+.consent input{width:18px;height:18px;margin-top:2px;flex:none;accent-color:var(--accent)}
 .guide{background:var(--surface-2);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--ink-soft);margin-bottom:14px}
 .guide b{color:var(--ink)}
 .actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px}

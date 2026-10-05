@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>abroadboard</title>
-  <meta name="description" content="A bulletin board for international students at the University of Auckland: meetups, flatmates, events, campus and budget tips.">
+  <meta name="description" content="A bulletin board for international students at Auckland universities and colleges: meetups, flatmates, events, campus and budget tips.">
   <meta name="theme-color" content="#45062E">
   <meta property="og:title" content="abroadboard">
-  <meta property="og:description" content="Find your people in Auckland. A bulletin board just for UoA international students.">
+  <meta property="og:description" content="Find your people in Auckland. A bulletin board just for international students in Auckland.">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -44,7 +44,7 @@
     <div class="intro">
       <div>
         <h1>Find your people in Auckland</h1>
-        <p>A bulletin board just for international students at the University of Auckland. Post a meetup, find a flatmate, sell your rice cooker.</p>
+        <p>A bulletin board just for international students at Auckland universities and colleges. Post a meetup, find a flatmate, sell your rice cooker.</p>
       </div>
       <button class="btn btn-primary" data-new="post">+ New post</button>
     </div>
@@ -69,7 +69,7 @@
         <div class="panel">
           <h4>How the board works</h4>
           <ul>
-            <li>Only <b>@aucklanduni.ac.nz</b> emails can post.</li>
+            <li>Only student emails from <a href="#join">accepted Auckland institutions</a> can post.</li>
             <li>Posts are removed automatically after 21 days.</li>
             <li>See something off? Tap <b>Report</b> and an admin will check it.</li>
           </ul>
@@ -134,12 +134,21 @@
   <section class="view" id="view-join" hidden>
     <div class="join" id="joinBox"></div>
   </section>
+
+  <!-- PRIVACY NOTICE (text lives in privacyNotice() in js/app.js) -->
+  <section class="view" id="view-privacy" hidden>
+    <div class="join privacy-page">
+      <h1>Privacy notice</h1>
+      <div id="privacyPage"></div>
+    </div>
+  </section>
 </main>
 
 <footer>
   <div class="wrap">
     <span>abroadboard · ENGGEN 731 Group 7 · University of Auckland student project</span>
     <span style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <a class="link-btn" href="#privacy">Privacy</a>
       <span id="adminBadge"></span>
       <button class="link-btn" id="adminToggle" hidden>Switch to admin view</button>
       <button class="link-btn" id="resetDemo" hidden>Reset demo data</button>
