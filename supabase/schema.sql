@@ -25,7 +25,7 @@
 
 -- Allowed student email domains. Keep in sync with INSTITUTIONS in js/config.js.
 create or replace function public.allowed_email_domains()
-returns text[] language sql immutable as $$
+returns text[] language sql immutable set search_path = '' as $$
   select array[
     'aucklanduni.ac.nz', 'uoa.auckland.ac.nz',   -- University of Auckland
     'autuni.ac.nz',                              -- AUT
@@ -48,7 +48,7 @@ $$;
 
 -- True when an email address belongs to one of the allowed domains (exact match).
 create or replace function public.is_student_email(email text)
-returns boolean language sql immutable as $$
+returns boolean language sql immutable set search_path = '' as $$
   select coalesce(
     lower(split_part(email, '@', 2)) = any (public.allowed_email_domains())
       and email like '%_@_%',
@@ -57,7 +57,7 @@ $$;
 
 -- True when the signed-in user has an allowed student email.
 create or replace function public.is_student()
-returns boolean language sql stable as $$
+returns boolean language sql stable set search_path = '' as $$
   select public.is_student_email(auth.jwt() ->> 'email')
 $$;
 
@@ -102,6 +102,11 @@ begin
   return new;
 end;
 $$;
+
+-- Only called by the trigger below and is_admin() by security rules; not public API.
+revoke execute on function public.handle_new_user() from anon, authenticated, public;
+revoke execute on function public.is_admin() from anon, public;
+grant execute on function public.is_admin() to authenticated;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
@@ -270,7 +275,7 @@ grant insert (post_id, reason) on public.reports to authenticated;
 -- ---------------------------------------------------------------------------
 
 create or replace function public.hook_uoa_only(event jsonb)
-returns jsonb language plpgsql as $$
+returns jsonb language plpgsql set search_path = '' as $$
 begin
   if public.is_student_email(event -> 'user' ->> 'email') then
     return '{}'::jsonb;

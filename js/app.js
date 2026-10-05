@@ -206,7 +206,7 @@ function privacyNotice() {
     </ul>
     <h3>Where it's kept and for how long</h3>
     <ul>
-      <li>Data is stored with Supabase in its Sydney, Australia region. The site is hosted by Vercel.</li>
+      <li>Data is stored with Supabase in its Seoul, South Korea region. The site is hosted by Vercel.</li>
       <li>Posts are deleted automatically after ${EXPIRY_DAYS} days, and events about a week after they happen.</li>
       <li>Your account stays until you ask us to delete it.</li>
     </ul>
