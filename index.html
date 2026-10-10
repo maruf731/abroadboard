@@ -4,11 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>abroadboard</title>
-  <meta name="description" content="A bulletin board for international students at the University of Auckland: meetups, flatmates, events, campus and budget tips.">
+  <meta name="description" content="A bulletin board for international students at Auckland universities and colleges: meetups, flatmates, events, campus and budget tips.">
   <meta name="theme-color" content="#45062E">
   <meta property="og:title" content="abroadboard">
-  <meta property="og:description" content="Find your people in Auckland. A bulletin board just for UoA international students.">
+  <meta property="og:description" content="Find your people in Auckland. A bulletin board just for international students in Auckland.">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&display=swap">
@@ -18,21 +19,33 @@
 <body>
 
 <div class="mode-bar" id="modeBar" hidden>
-  <div class="wrap"><b>Demo mode</b><span>Posts are saved only in this browser. Add your Supabase keys to <code>js/config.js</code> to go live.</span></div>
+  <div class="wrap" data-i18n><b>Demo mode</b><span>Posts are saved only in this browser. Add your Supabase keys to <code>js/config.js</code> to go live.</span></div>
 </div>
 
 <header class="top">
   <div class="wrap">
     <div class="bar">
-      <a class="logo" href="#board" aria-label="abroadboard home"><span class="sq">ab</span>roadboard</a>
+      <a class="logo" href="#board" aria-label="abroadboard home" data-i18n-attr="aria-label">
+        <svg class="globe" viewBox="0 0 120 132" aria-hidden="true">
+          <path d="M46.5 11.8 A52 52 0 1 0 99.8 95.4" fill="none" stroke="currentColor" stroke-width="7"/>
+          <path d="M56 113 L51 127 Q50 130 53 130 L69 130 Q72 130 71 127 L66 113 Z" fill="currentColor"/>
+          <circle cx="65" cy="57" r="49" fill="#A08057"/>
+          <rect x="35" y="29" width="60" height="57" rx="2" fill="#E8D1B3"/>
+          <circle cx="47" cy="42" r="11" fill="#C30004"/>
+        </svg>
+        <span class="word">abroadboard</span>
+      </a>
       <span class="spacer"></span>
+      <button class="lang-btn" id="langBtn" type="button" lang="zh-Hans">中文</button>
       <div class="who" id="who"></div>
     </div>
-    <nav class="tabs" aria-label="Sections">
-      <a href="#board" data-view="board">Board</a>
-      <a href="#events" data-view="events">Events</a>
-      <a href="#campus" data-view="campus">Campus tips</a>
-      <a href="#food" data-view="food">Food &amp; budget</a>
+    <nav class="tabs" aria-label="Sections" data-i18n-attr="aria-label">
+      <a href="#board" data-view="board" data-i18n>Board</a>
+      <a href="#market" data-view="market" data-i18n>Buy and Sell</a>
+      <a href="#events" data-view="events" data-i18n>Events</a>
+      <a href="#campus" data-view="campus" data-i18n>Campus tips</a>
+      <a href="#food" data-view="food" data-i18n>Food &amp; budget</a>
+      <a href="#faq" data-view="faq" data-i18n>FAQ</a>
       <a href="#join" data-view="join" id="joinTab">Join</a>
     </nav>
   </div>
@@ -43,35 +56,36 @@
   <section class="view" id="view-board">
     <div class="intro">
       <div>
-        <h1>Find your people in Auckland</h1>
-        <p>A bulletin board just for international students at the University of Auckland. Post a meetup, find a flatmate, sell your rice cooker.</p>
+        <h1 data-i18n>Find your people in Auckland</h1>
+        <p data-i18n>This board is all about making connections for <b>international university students in Auckland</b>! Scroll down to see who is looking for a coffee buddy, study partner, or weekend explore group. Or hit <a href="#board" data-new="post"><b>New Post</b></a> to put yourself out there.</p>
+        <p data-i18n>Want to trade gear, find local events, get tips to navigate campus, or grab cheap eats? Use the top menu to jump straight to our <a href="#events"><b>Events</b></a>, <a href="#market"><b>Buy and Sell</b></a>, <a href="#campus"><b>Campus Tips</b></a>, and <a href="#food"><b>Food &amp; Budget</b></a> boards!</p>
       </div>
-      <button class="btn btn-primary" data-new="post">+ New post</button>
+      <button class="btn btn-primary" data-new="post" data-i18n>+ New post</button>
     </div>
     <div class="layout">
       <div>
         <div class="filters">
           <div class="search">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input id="q" type="search" placeholder="Search posts" aria-label="Search posts">
+            <input id="q" type="search" placeholder="Search posts" aria-label="Search posts" data-i18n-attr="placeholder,aria-label">
           </div>
-          <div class="chips" id="chips" role="group" aria-label="Filter by category"></div>
+          <div class="chips" id="chips" role="group" aria-label="Filter by category" data-i18n-attr="aria-label"></div>
         </div>
-        <div class="feed" id="feedList"><div class="loading">Loading posts…</div></div>
+        <div class="feed" id="feedList"><div class="loading" data-i18n>Loading posts…</div></div>
       </div>
       <aside>
         <!-- Sponsor banner: $200/month (Story 20). Replace with a real sponsor's image and link. -->
         <div class="panel sponsor">
-          <small>Local sponsor</small>
-          <h4>Your business here</h4>
-          <p>Reach international students near campus. Banner slot, $200/month.</p>
+          <small data-i18n>Local sponsor</small>
+          <h4 data-i18n>Your business here</h4>
+          <p data-i18n>Reach international students near campus. Banner slot, $200/month.</p>
         </div>
         <div class="panel">
-          <h4>How the board works</h4>
+          <h4 data-i18n>How the board works</h4>
           <ul>
-            <li>Only <b>@aucklanduni.ac.nz</b> emails can post.</li>
-            <li>Posts are removed automatically after 21 days.</li>
-            <li>See something off? Tap <b>Report</b> and an admin will check it.</li>
+            <li data-i18n>Only student emails from <a href="#join">accepted Auckland institutions</a> can post.</li>
+            <li data-i18n>Posts are removed automatically after 21 days.</li>
+            <li data-i18n>See something off? Tap <b>Report</b> and an admin will check it.</li>
           </ul>
         </div>
         <div class="panel" id="stats"></div>
@@ -79,41 +93,64 @@
     </div>
   </section>
 
+  <!-- BUY & SELL -->
+  <section class="view" id="view-market" hidden>
+    <div class="intro">
+      <div>
+        <h1 data-i18n>Buy and Sell</h1>
+        <p data-i18n>Pass on what you don't need and pick up what you do from students near you. Save money, earn a little, and keep good stuff out of landfill.</p>
+      </div>
+      <button class="btn btn-primary" data-new="market" data-i18n>+ Sell something</button>
+    </div>
+    <div class="filters">
+      <div class="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="mq" type="search" placeholder="Search items" aria-label="Search items" data-i18n-attr="placeholder,aria-label">
+      </div>
+      <div class="chips" id="marketChips" role="group" aria-label="Filter by category" data-i18n-attr="aria-label"></div>
+    </div>
+    <div class="market" id="marketList"><div class="loading" data-i18n>Loading listings…</div></div>
+  </section>
+
   <!-- EVENTS (Story 16) -->
   <section class="view" id="view-events" hidden>
     <div class="intro">
       <div>
-        <h1>Local events</h1>
-        <p>Things happening around Auckland that are good for meeting people.</p>
+        <h1 data-i18n>Local events</h1>
+        <p data-i18n>Things happening around Auckland that are good for meeting people.</p>
       </div>
-      <button class="btn btn-primary" data-new="event">+ Post an event</button>
+      <button class="btn btn-primary" data-new="event" data-i18n>+ Post an event</button>
     </div>
-    <div class="fee-note"><b>$5 NZD</b> per event listing. Fees help keep abroadboard free for everyone else.</div>
-    <div class="events" id="eventList"><div class="loading">Loading events…</div></div>
+    <div class="fee-note" data-i18n><b>$5 NZD</b> per event listing. Fees help keep abroadboard free for everyone else.</div>
+    <div class="events" id="eventList"><div class="loading" data-i18n>Loading events…</div></div>
   </section>
 
   <!-- CAMPUS (Story 23) -->
   <section class="view" id="view-campus" hidden>
     <div class="intro">
       <div>
-        <h1>Getting around campus</h1>
-        <p>Five things we wish someone had told us in our first week at the City Campus.</p>
+        <h1 data-i18n>Getting around campus</h1>
+        <p data-i18n>Things we wish someone had told us in our first week on campus in Auckland.</p>
       </div>
     </div>
     <div class="campus">
       <!-- To add the map: save it as assets/campus-map.png and replace this div with
            <img src="assets/campus-map.png" alt="University of Auckland City Campus map" style="border-radius:14px"> -->
-      <div class="map" role="img" aria-label="Campus map placeholder">
+      <div class="map" role="img" aria-label="Campus map placeholder" data-i18n-attr="aria-label">
         <span class="pin" aria-hidden="true"></span>
-        <strong>Campus map goes here</strong>
-        <p>Add the official University of Auckland City Campus map with key buildings marked.</p>
+        <strong data-i18n>Campus map goes here</strong>
+        <p data-i18n>Add the official University of Auckland City Campus map with key buildings marked.</p>
       </div>
       <ol class="tips">
-        <li><h3>Read room codes as building-room</h3><p>A room like <code class="room">260-115</code> means building 260, room 115. Find the building number first, then the room.</p></li>
-        <li><h3>Get an AT HOP card</h3><p>Auckland buses, trains and ferries use AT HOP. Apply for the tertiary concession to pay less per trip.</p></li>
-        <li><h3>Leave ten minutes between classes</h3><p>The campus sits on a hill and some buildings are a steep walk apart. Plan back-to-back classes with that in mind.</p></li>
-        <li><h3>Find a study spot early</h3><p>The General Library and Kate Edger Information Commons fill up fast in exam season. Pick a backup spot in week one.</p></li>
-        <li><h3>Use Albert Park as your meeting point</h3><p>It's right next to campus and easy to find, which makes it a good default when meeting someone from the board.</p></li>
+        <li data-i18n><h3>Read room codes as building-room</h3><p>A room like <code class="room">260-115</code> means building 260, room 115. Find the building number first, then the room.</p></li>
+        <li data-i18n><h3>Get an AT HOP card</h3><p>Auckland buses, trains and ferries use AT HOP. Apply for the tertiary concession to pay less per trip.</p></li>
+        <li data-i18n><h3>Leave ten minutes between classes</h3><p>The campus sits on a hill and some buildings are a steep walk apart. Plan back-to-back classes with that in mind.</p></li>
+        <li data-i18n><h3>Find a study spot early</h3><p>The General Library and Kate Edger Information Commons fill up fast in exam season. Pick a backup spot in week one.</p></li>
+        <li data-i18n><h3>Use Albert Park as your meeting point</h3><p>It's right next to campus and easy to find, which makes it a good default when meeting someone from the board.</p></li>
+        <li data-i18n><h3>Get your student ID card in week one</h3><p>You need it for exams, the library, printing and building access, and it unlocks many student discounts.</p></li>
+        <li data-i18n><h3>Use free health and counselling services</h3><p>Most institutions have a student health centre and free counselling. Book early, especially around exams.</p></li>
+        <li data-i18n><h3>Ask for student discounts everywhere</h3><p>Show your student ID at cinemas, gyms, phone shops and some cafes. Many places take 10% off or more.</p></li>
+        <li data-i18n><h3>Keep important numbers in your phone</h3><p>Save 111 for emergencies, your campus security number and your institution's international student office.</p></li>
       </ol>
     </div>
   </section>
@@ -122,24 +159,65 @@
   <section class="view" id="view-food" hidden>
     <div class="intro">
       <div>
-        <h1>Food &amp; budget tips</h1>
-        <p>Cheap, filling and actually nutritious. Share what you've found.</p>
+        <h1 data-i18n>Food &amp; budget tips</h1>
+        <p data-i18n>Cheap, filling and actually nutritious. Share what you've found.</p>
       </div>
-      <button class="btn btn-primary" data-new="food">+ Share a tip</button>
+      <button class="btn btn-primary" data-new="food" data-i18n>+ Share a tip</button>
     </div>
-    <div class="food" id="foodList"><div class="loading">Loading tips…</div></div>
+    <div class="food" id="foodList"><div class="loading" data-i18n>Loading tips…</div></div>
+  </section>
+
+  <!-- FAQ and contact -->
+  <section class="view" id="view-faq" hidden>
+    <div class="intro">
+      <div>
+        <h1 data-i18n>Frequently asked questions</h1>
+        <p data-i18n>Quick answers about joining, posting and buying and selling on abroadboard.</p>
+      </div>
+    </div>
+    <div class="faq-layout">
+      <div class="faq">
+      <details class="faq-item"><summary data-i18n>Who can join abroadboard?</summary><p data-i18n>Students at one of the 16 accepted Auckland universities and colleges. Sign up with your student email and confirm that you study in Auckland. The full list of accepted emails is on the <a href="#join">Join</a> page.</p></details>
+      <details class="faq-item"><summary data-i18n>How do I sign up?</summary><p data-i18n>Open <a href="#join">Join</a>, enter your student email, pick the area of Auckland you study in, tick the two boxes and press the button. Then type the verification code to create your profile.</p></details>
+      <details class="faq-item"><summary data-i18n>Is it free?</summary><p data-i18n>Yes. Posting on the board, selling items and sharing tips are free. Listing an event costs $5 NZD, which helps keep the site running.</p></details>
+      <details class="faq-item"><summary data-i18n>How does Buy and Sell work?</summary><p data-i18n>Tap <b>+ Sell something</b>, add a price, the condition and up to two photos. Buyers tap <b>Request contact details</b>, and you decide who gets them. Meet in a public place on or near campus, and check the item before you pay.</p></details>
+      <details class="faq-item"><summary data-i18n>Who can see my contact details?</summary><p data-i18n>Nobody, until you tap <b>Share</b> on their request. Your email, mobile or social media handle is never shown publicly on a post.</p></details>
+      <details class="faq-item"><summary data-i18n>What does "For:" on a post mean?</summary><p data-i18n>It shows who the post is meant for, such as women only, light sleepers, or non-smokers. Authors choose this when they post, for example when looking for a flatmate.</p></details>
+      <details class="faq-item"><summary data-i18n>What photos can I add?</summary><p data-i18n>Up to two photos per post, in .jpg or .jpeg format, each 5 MB or smaller. Large photos are resized automatically so they load quickly.</p></details>
+      <details class="faq-item"><summary data-i18n>How long do posts stay up?</summary><p data-i18n>Posts and their photos are removed automatically after 21 days. Events disappear about a week after they happen. You can delete your own post at any time.</p></details>
+      <details class="faq-item"><summary data-i18n>I saw a scam or something inappropriate. What should I do?</summary><p data-i18n>Tap <b>Report</b> on the post and an admin will check it. For anything urgent, email <a href="mailto:info@abroadboard.com">info@abroadboard.com</a>.</p></details>
+      <details class="faq-item"><summary data-i18n>Can I use abroadboard in Chinese?</summary><p data-i18n>Yes. Tap <b>中文</b> at the top of any page to switch to Simplified Chinese, and <b>English</b> to switch back.</p></details>
+      <details class="faq-item"><summary data-i18n>How do I change or delete my account?</summary><p data-i18n>Change your display name and home country on <a href="#join">My account</a>. To delete your account or your data, email <a href="mailto:info@abroadboard.com">info@abroadboard.com</a>.</p></details>
+      </div>
+      <aside class="panel contact-panel">
+        <h4 data-i18n>Contact us</h4>
+        <p data-i18n>Questions, feedback, a problem with your account, or want to advertise? Email the abroadboard team.</p>
+        <a class="btn btn-primary" href="mailto:info@abroadboard.com">info@abroadboard.com</a>
+      </aside>
+    </div>
   </section>
 
   <!-- JOIN (Story 6) -->
   <section class="view" id="view-join" hidden>
     <div class="join" id="joinBox"></div>
   </section>
+
+  <!-- PRIVACY NOTICE (text lives in privacyNotice() in js/app.js) -->
+  <section class="view" id="view-privacy" hidden>
+    <div class="join privacy-page">
+      <h1 data-i18n>Privacy notice</h1>
+      <div id="privacyPage"></div>
+    </div>
+  </section>
 </main>
 
 <footer>
   <div class="wrap">
-    <span>abroadboard · ENGGEN 731 Group 7 · University of Auckland student project</span>
+    <span data-i18n>abroadboard · ENGGEN 731 Group 7 · University of Auckland student project</span>
     <span style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <a class="link-btn" href="#faq" data-i18n>FAQ</a>
+      <a class="link-btn" href="#privacy" data-i18n>Privacy</a>
+      <a class="link-btn" href="mailto:info@abroadboard.com">info@abroadboard.com</a>
       <span id="adminBadge"></span>
       <button class="link-btn" id="adminToggle" hidden>Switch to admin view</button>
       <button class="link-btn" id="resetDemo" hidden>Reset demo data</button>
@@ -147,6 +225,11 @@
   </div>
 </footer>
 
+<dialog id="photoDlg" aria-label="Photo" data-i18n-attr="aria-label">
+  <button class="close" type="button" data-close aria-label="Close" data-i18n-attr="aria-label">×</button>
+  <img id="photoDlgImg" class="ph" alt="">
+  <button class="next" id="photoNext" type="button" aria-label="Next photo" data-i18n-attr="aria-label">›</button>
+</dialog>
 <dialog id="dlg"><form id="dlgForm" method="dialog" novalidate></form></dialog>
 <div class="toast" id="toast" role="status" hidden></div>
 </body>

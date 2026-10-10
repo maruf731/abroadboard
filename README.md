@@ -1,6 +1,6 @@
 # abroadboard
 
-A bulletin board for international students at the University of Auckland.
+A bulletin board for international students at Auckland universities and colleges.
 ENGGEN 731, Group 7.
 
 Plain HTML, CSS and JavaScript. **Supabase** handles the database and email login, and **Vercel** hosts the site. There is no build step, and every tool used here has a free tier.
@@ -13,13 +13,15 @@ The site works straight away in **demo mode**, which uses sample data saved only
 
 | Path | What it is |
 |---|---|
-| `index.html` | Every page: Board, Events, Campus tips, Food & budget, Join |
+| `index.html` | Every page: Board, Buy and Sell, Events, Campus tips, Food & budget, Join |
 | `css/styles.css` | Brand colours, fonts and layout (works on phones) |
 | `js/config.js` | **The only file you need to edit to go live**: Supabase URL and key |
 | `js/data.js` | Talks to Supabase, or to the demo data when there are no keys |
 | `js/app.js` | What the pages show and do |
 | `supabase/schema.sql` | Database tables and security rules. Run it once in Supabase. |
-| `assets/favicon.svg` | The "ab" browser-tab icon |
+| `supabase/seed.sql` | Optional sample events and meetup posts |
+| `supabase/email-templates/sign-in.html` | The sign-in email with the one-time code (`{{ .Token }}`) |
+| `assets/logo.svg`, `assets/favicon.svg` | The globe logo and browser-tab icon |
 
 ### Where each user story lives
 
@@ -30,7 +32,16 @@ The site works straight away in **demo mode**, which uses sample data saved only
 | 3 Admin delete | Delete button; `"Authors and admins delete posts"` rule in `schema.sql` |
 | 4 Tips on what to write | "What to include" box in the new-post form |
 | 5 Ads | `AD_SLOT` in `app.js`, sponsor panel in `index.html` |
-| 6 UoA email only | `isUoaEmail()` in the browser, `is_uoa()` rule and `hook_uoa_only` in the database |
+| 6 Student email only | `INSTITUTIONS` in `config.js` and `isStudentEmail()` in the browser; `allowed_email_domains()`, `is_student()` and `hook_uoa_only` in the database |
+| English / 中文 switch | `js/i18n.js` (Mandarin text, keyed by the English); `data-i18n` marks static text in `index.html`. Student posts stay in the language they were written in. |
+| FAQ + contact | `#faq` page in `index.html` (answers marked `data-i18n`); `CONTACT_EMAIL` in `config.js` (info@abroadboard.com), also in the footer and privacy notice |
+| Privacy notice + consent | `privacyNotice()` in `app.js`, shown on the Join page and at `#privacy`; consent saved in `profiles.privacy_consent_at` |
+| Auckland check | Campus-area picker and a required "I study in Auckland" box on the Join page (`aucklandFields()` in `app.js`). Saved as `profiles.campus` and `auckland_confirmed_at`; posting, selling and requesting contact details need it (`is_verified()` in `schema.sql`). |
+| Sign-in code | `SIGNUP_CODE` in `config.js` (now `12345`): students type it after pressing Sign up, and `fixedCodeSignIn()` in `data.js` signs them in or creates the profile. This does not prove they own the inbox, so it is for testing and demos only. It needs **Confirm email** switched off in Supabase (Authentication → Sign In / Providers → Email). Set `SIGNUP_CODE = ""` to go back to emailed codes, which need the email template in step 3. |
+| Buy and Sell | `#market` page, `renderMarket()` and `openDialog("market")` in `app.js`; `posts` with `section = 'market'`, plus `price` and `condition` |
+| Who a post is for | Gender, heavy/light sleeper and a free note (`audience_*` columns), shown as "For:" chips |
+| Private contact details | Authors pick email, mobile and/or social media. Details live in `post_contacts` and stay hidden; others send a request (`contact_requests`) and the author taps Share or Decline. |
+| Photos | Up to 2 .jpg/.jpeg photos per post, 5 MB each, in the `post-images` storage bucket. Resized in the browser before upload; checked again by the bucket. |
 | 7 Categories + custom | `CATEGORIES` in `app.js` |
 | 8 Report button | `reports` table; admins see "Reported ×n" |
 | 10 Auto-delete after 21 days | Read rule hides old posts, and a cron job deletes them hourly |
@@ -52,19 +63,19 @@ The site works straight away in **demo mode**, which uses sample data saved only
 1. In the project, open **SQL Editor → New query**.
 2. Paste the whole of `supabase/schema.sql` and click **Run**. It should say *Success*.
 3. Check **Table Editor**: you should see `profiles`, `posts`, `events` and `reports`.
-4. Check **Integrations → Cron**: you should see two jobs starting with `abroadboard-`.
+4. (Optional) To fill the site with sample events and meetup posts, sign up on the site once, then paste `supabase/seed.sql` into a new query and click **Run**. The samples are posted under the first admin's name (or the first account).
+5. Check **Integrations → Cron**: you should see two jobs starting with `abroadboard-`.
    If the cron part failed, enable **Cron** under Integrations first, then run the file again. Running it again is safe.
 
 ### 3. Set up email sign-in
-Students sign in by clicking a link in an email, so nobody needs a password. The site uses Supabase's standard sign-in email. New free-plan projects can't edit email templates, and they don't need to here.
+Students sign in with a one-time code that is emailed to them, so nobody needs a password. The site only accepts emails from the institutions in `js/config.js`, then asks for the code.
 
 1. **Authentication → Sign In / Providers → Email**: make sure it's enabled.
 2. **Authentication → URL Configuration**:
    - **Site URL**: your Vercel address once you have it (step 8), e.g. `https://abroadboard.vercel.app`.
-   - **Redirect URLs**: add `https://*.vercel.app/**` and `http://localhost:3000/**`. The sign-in link only brings people back to addresses on this list.
-3. **Authentication → Hooks → Add hook → Before User Created → Postgres**, and choose `public.hook_uoa_only`. This refuses non-UoA emails at sign-up. Without it, the database rules still stop them from posting.
-
-If you later connect your own email service (step 4), you can also edit the templates and add `{{ .Token }}`. The site then accepts the 6-digit code as well as the link.
+   - **Redirect URLs**: add `https://*.vercel.app/**` and `http://localhost:3000/**`.
+3. **Authentication → Hooks → Add hook → Before User Created → Postgres**, and choose `public.hook_uoa_only`. This refuses emails from other domains at sign-up. Without it, the database rules still stop them from posting.
+4. **Authentication → Emails → Templates**: paste `supabase/email-templates/sign-in.html` into **both** "Confirm signup" and "Magic Link", with the subject `Your abroadboard sign-in code: {{ .Token }}`. Supabase's default emails only contain a link, so **without this step students never see a code**. Editing templates needs your own email service (step 4) on the free plan.
 
 ### 4. Make sure the emails actually arrive (important)
 Supabase's built-in email sender **only delivers to members of your Supabase team** and is limited to a couple of emails per hour. That's fine for a quick test, but not for a class demo.
