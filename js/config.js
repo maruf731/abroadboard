@@ -32,6 +32,21 @@ export const INSTITUTIONS = [
 ];
 export const ALLOWED_DOMAINS = INSTITUTIONS.flatMap((i) => i.domains);
 
+// Where in Auckland students study. Picking one and ticking the confirmation box
+// is required to join (saved as profiles.campus and auckland_confirmed_at).
+export const CAMPUSES = [
+  "Auckland CBD (city centre)",
+  "Grafton / Newmarket",
+  "North Shore (Albany, Takapuna)",
+  "West Auckland (Henderson, Mt Albert)",
+  "South Auckland (Manukau, Ōtāhuhu)",
+  "East Auckland (Botany, Howick)",
+];
+
+// Photos on posts: JPEG only, at most this many, each no bigger than this.
+export const MAX_PHOTOS = 2;
+export const MAX_PHOTO_MB = 5;
+
 // Privacy notice (shown on the Join page and at #privacy). Bump the version when
 // the notice changes; it is saved with each new account as a record of consent.
 export const PRIVACY_VERSION = "2026-10-05";

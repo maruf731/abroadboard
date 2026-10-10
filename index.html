@@ -41,6 +41,7 @@
     </div>
     <nav class="tabs" aria-label="Sections" data-i18n-attr="aria-label">
       <a href="#board" data-view="board" data-i18n>Board</a>
+      <a href="#market" data-view="market" data-i18n>Buy &amp; sell</a>
       <a href="#events" data-view="events" data-i18n>Events</a>
       <a href="#campus" data-view="campus" data-i18n>Campus tips</a>
       <a href="#food" data-view="food" data-i18n>Food &amp; budget</a>
@@ -56,7 +57,7 @@
       <div>
         <h1 data-i18n>Find your people in Auckland</h1>
         <p data-i18n>This board is all about making connections for <b>international university students in Auckland</b>! Scroll down to see who is looking for a coffee buddy, study partner, or weekend explore group. Or hit <a href="#board" data-new="post"><b>New Post</b></a> to put yourself out there.</p>
-        <p data-i18n>Want to trade gear, find local events, get tips to navigate campus, or grab cheap eats? Use the top menu to jump straight to our <a href="#events"><b>Events</b></a>, <a href="#board" data-cat="Buy &amp; sell"><b>Buy &amp; Sell</b></a>, <a href="#campus"><b>Campus Tips</b></a>, and <a href="#food"><b>Food &amp; Budget</b></a> boards!</p>
+        <p data-i18n>Want to trade gear, find local events, get tips to navigate campus, or grab cheap eats? Use the top menu to jump straight to our <a href="#events"><b>Events</b></a>, <a href="#market"><b>Buy &amp; Sell</b></a>, <a href="#campus"><b>Campus Tips</b></a>, and <a href="#food"><b>Food &amp; Budget</b></a> boards!</p>
       </div>
       <button class="btn btn-primary" data-new="post" data-i18n>+ New post</button>
     </div>
@@ -89,6 +90,25 @@
         <div class="panel" id="stats"></div>
       </aside>
     </div>
+  </section>
+
+  <!-- BUY & SELL -->
+  <section class="view" id="view-market" hidden>
+    <div class="intro">
+      <div>
+        <h1 data-i18n>Buy &amp; sell</h1>
+        <p data-i18n>Pass on what you don't need and pick up what you do from students near you. Save money, earn a little, and keep good stuff out of landfill.</p>
+      </div>
+      <button class="btn btn-primary" data-new="market" data-i18n>+ Sell something</button>
+    </div>
+    <div class="filters">
+      <div class="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="mq" type="search" placeholder="Search items" aria-label="Search items" data-i18n-attr="placeholder,aria-label">
+      </div>
+      <div class="chips" id="marketChips" role="group" aria-label="Filter by category" data-i18n-attr="aria-label"></div>
+    </div>
+    <div class="market" id="marketList"><div class="loading" data-i18n>Loading listings…</div></div>
   </section>
 
   <!-- EVENTS (Story 16) -->
@@ -168,6 +188,11 @@
   </div>
 </footer>
 
+<dialog id="photoDlg" aria-label="Photo" data-i18n-attr="aria-label">
+  <button class="close" type="button" data-close aria-label="Close" data-i18n-attr="aria-label">×</button>
+  <img id="photoDlgImg" class="ph" alt="">
+  <button class="next" id="photoNext" type="button" aria-label="Next photo" data-i18n-attr="aria-label">›</button>
+</dialog>
 <dialog id="dlg"><form id="dlgForm" method="dialog" novalidate></form></dialog>
 <div class="toast" id="toast" role="status" hidden></div>
 </body>

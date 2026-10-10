@@ -1,14 +1,14 @@
-<!-- abroadboard sign-in email. Paste into Supabase > Authentication > Emails > Templates,
+<!-- abroadboard sign-in code email. Paste into Supabase > Authentication > Emails > Templates,
      in BOTH "Confirm signup" and "Magic Link" (new students get the first, returning ones the second).
-     Subject for both: Your abroadboard sign-in link
+     Subject for both: Your abroadboard sign-in code: {{ .Token }}
+     The site asks for this code, so {{ .Token }} must be in the email.
      Needs custom SMTP: free-plan projects can only edit templates once SMTP is set up. -->
 <div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#45062E;background:#FFFCF7">
-  <h1 style="font-size:22px;margin:0 0 12px">Sign in to abroadboard</h1>
-  <p style="font-size:15px;line-height:1.5;margin:0 0 20px">Tap the button to sign in. The link works once and expires in an hour.</p>
-  <p style="margin:0 0 24px">
-    <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#C30004;color:#FFFFFF;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:10px">Sign in to abroadboard</a>
-  </p>
-  <p style="font-size:15px;line-height:1.5;margin:0 0 6px">Or enter this code on the site:</p>
-  <p style="font-size:28px;font-weight:bold;letter-spacing:6px;margin:0 0 24px">{{ .Token }}</p>
-  <p style="font-size:13px;color:#7A5E3A;line-height:1.5;margin:0">If you didn't ask to join abroadboard, you can ignore this email. Nobody can sign in without this link or code.</p>
+  <p style="margin:0 0 16px"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#C30004;vertical-align:middle"></span>
+    <b style="font-size:18px;vertical-align:middle;margin-left:6px">abroadboard</b></p>
+  <h1 style="font-size:22px;margin:0 0 12px">Your sign-in code</h1>
+  <p style="font-size:15px;line-height:1.5;margin:0 0 16px">Type this code into the abroadboard page you just came from:</p>
+  <p style="font-size:34px;font-weight:bold;letter-spacing:8px;margin:0 0 16px;padding:14px 0;text-align:center;background:#E8D1B3;border-radius:12px;font-family:'Courier New',monospace">{{ .Token }}</p>
+  <p style="font-size:14px;line-height:1.5;margin:0 0 24px">The code works once and expires in an hour.</p>
+  <p style="font-size:13px;color:#7A5E3A;line-height:1.5;margin:0">If you didn't ask to join abroadboard, you can ignore this email. Nobody can sign in without this code.</p>
 </div>

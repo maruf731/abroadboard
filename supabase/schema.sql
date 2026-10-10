@@ -12,7 +12,10 @@
 -- Rules it enforces on the server (not just in the browser)
 --   * Only student emails from the accepted Auckland institutions can post,
 --     list events or report (Story 6). The list is in allowed_email_domains().
---   * Each new account records when it agreed to the privacy notice
+--   * Each new account records when it agreed to the privacy notice and
+--     confirmed it studies in Auckland; posting needs both (is_verified())
+--   * Contact details on posts are private until the author approves a request
+--   * Photos: up to 2 JPEGs per post, 5 MB each, in the post-images bucket
 --   * Anyone can read; people can delete their own posts; admins can delete any (Story 3)
 --   * Posts older than 21 days are hidden at once and deleted hourly (Story 10)
 --   * Users cannot make themselves admin or back-date their posts
@@ -79,6 +82,10 @@ create table if not exists public.profiles (
 alter table public.profiles add column if not exists privacy_consent_at timestamptz;
 alter table public.profiles add column if not exists privacy_version text;
 
+-- Auckland location confirmation, given at sign-up (or later on the account page).
+alter table public.profiles add column if not exists campus text check (char_length(campus) <= 60);
+alter table public.profiles add column if not exists auckland_confirmed_at timestamptz;
+
 -- True when the signed-in user is an admin. SECURITY DEFINER so it can read
 -- profiles without tripping the table's own security rules.
 create or replace function public.is_admin()
@@ -88,16 +95,38 @@ returns boolean language sql stable security definer set search_path = '' as $$
     false)
 $$;
 
+-- True when the signed-in user has an allowed student email AND has confirmed
+-- they study in Auckland. Every "create" rule below uses this.
+create or replace function public.is_verified()
+returns boolean language sql stable security definer set search_path = '' as $$
+  select public.is_student() and exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.auckland_confirmed_at is not null)
+$$;
+
+-- Confirm Auckland study for an account that signed up before this was asked.
+create or replace function public.confirm_auckland(campus_name text)
+returns void language sql security definer set search_path = '' as $$
+  update public.profiles
+     set campus = left(nullif(trim(campus_name), ''), 60),
+         auckland_confirmed_at = coalesce(auckland_confirmed_at, now())
+   where id = auth.uid() and nullif(trim(campus_name), '') is not null
+$$;
+
 -- Create a profile automatically when someone signs up.
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
-  insert into public.profiles (id, display_name, privacy_consent_at, privacy_version)
+  insert into public.profiles (id, display_name, privacy_consent_at, privacy_version,
+                               campus, auckland_confirmed_at)
   values (
     new.id,
     left(coalesce(nullif(split_part(new.email, '@', 1), ''), 'Student'), 40),
     case when new.raw_user_meta_data ->> 'privacy_consent' = 'true' then now() end,
-    left(new.raw_user_meta_data ->> 'privacy_version', 20))
+    left(new.raw_user_meta_data ->> 'privacy_version', 20),
+    left(nullif(trim(new.raw_user_meta_data ->> 'campus'), ''), 60),
+    case when new.raw_user_meta_data ->> 'auckland_confirmed' = 'true'
+              and nullif(trim(new.raw_user_meta_data ->> 'campus'), '') is not null then now() end)
   on conflict (id) do nothing;
   return new;
 end;
@@ -107,6 +136,10 @@ $$;
 revoke execute on function public.handle_new_user() from anon, authenticated, public;
 revoke execute on function public.is_admin() from anon, public;
 grant execute on function public.is_admin() to authenticated;
+revoke execute on function public.is_verified() from anon, public;
+grant execute on function public.is_verified() to authenticated;
+revoke execute on function public.confirm_auckland(text) from anon, public;
+grant execute on function public.confirm_auckland(text) to authenticated;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
@@ -127,7 +160,7 @@ create policy "Students update their own profile"
 -- Students may change only their name and country, never is_admin.
 revoke insert, update, delete on public.profiles from anon, authenticated;
 grant select on public.profiles to anon, authenticated;
-grant update (display_name, home_country) on public.profiles to authenticated;
+grant update (display_name, home_country, campus) on public.profiles to authenticated;
 
 
 -- ---------------------------------------------------------------------------
@@ -147,6 +180,27 @@ create table if not exists public.posts (
   created_at  timestamptz not null default now()
 );
 
+-- Added for the marketplace, audience criteria, private contact and photos.
+alter table public.posts add column if not exists condition text
+  check (condition in ('New', 'Like new', 'Good', 'Fair'));
+alter table public.posts add column if not exists audience_gender text not null default 'any'
+  check (audience_gender in ('any', 'women', 'men', 'nonbinary'));
+alter table public.posts add column if not exists audience_sleeper text not null default 'any'
+  check (audience_sleeper in ('any', 'light', 'heavy'));
+alter table public.posts add column if not exists audience_note text
+  check (char_length(audience_note) <= 120);
+-- Which contact methods the author offers (the details themselves are in post_contacts).
+alter table public.posts add column if not exists contact_methods text[] not null default '{}'
+  check (contact_methods <@ array['email', 'mobile', 'social']::text[]);
+-- Storage paths in the post-images bucket, at most two.
+alter table public.posts add column if not exists images text[] not null default '{}'
+  check (coalesce(array_length(images, 1), 0) <= 2);
+
+-- 'market' is the Buy & sell section.
+alter table public.posts drop constraint if exists posts_section_check;
+alter table public.posts add constraint posts_section_check
+  check (section in ('board', 'food', 'market'));
+
 create index if not exists posts_section_created_idx
   on public.posts (section, created_at desc);
 
@@ -161,7 +215,10 @@ drop policy if exists "UoA students create their own posts" on public.posts;
 drop policy if exists "Students create their own posts" on public.posts;
 create policy "Students create their own posts"
   on public.posts for insert to authenticated
-  with check (author_id = auth.uid() and public.is_student());
+  with check (author_id = auth.uid() and public.is_verified()
+              -- photos must be in the author's own folder
+              and not exists (select 1 from unnest(images) i
+                              where i not like auth.uid()::text || '/%'));
 
 drop policy if exists "Authors and admins delete posts" on public.posts;
 create policy "Authors and admins delete posts"
@@ -172,7 +229,8 @@ create policy "Authors and admins delete posts"
 -- created_at are always filled in by the database, so they can't be faked.
 revoke insert, update, delete on public.posts from anon, authenticated;
 grant select on public.posts to anon, authenticated;
-grant insert (section, category, title, body, contact, price) on public.posts to authenticated;
+grant insert (section, category, title, body, contact, price, condition, audience_gender,
+               audience_sleeper, audience_note, contact_methods, images) on public.posts to authenticated;
 grant delete on public.posts to authenticated;
 
 
@@ -213,7 +271,7 @@ drop policy if exists "UoA students create events" on public.events;
 drop policy if exists "Students create events" on public.events;
 create policy "Students create events"
   on public.events for insert to authenticated
-  with check (host_id = auth.uid() and public.is_student()
+  with check (host_id = auth.uid() and public.is_verified()
               and event_date >= current_date and event_date <= current_date + 365);
 
 drop policy if exists "Hosts and admins delete events" on public.events;
@@ -247,7 +305,7 @@ alter table public.reports enable row level security;
 drop policy if exists "Students report posts" on public.reports;
 create policy "Students report posts"
   on public.reports for insert to authenticated
-  with check (reporter_id = auth.uid() and public.is_student());
+  with check (reporter_id = auth.uid() and public.is_verified());
 
 -- Students see their own reports (so the button shows "Reported");
 -- admins see every report.
@@ -264,6 +322,106 @@ create policy "Admins clear reports"
 revoke insert, update, delete, select on public.reports from anon, authenticated;
 grant select, delete on public.reports to authenticated;
 grant insert (post_id, reason) on public.reports to authenticated;
+
+
+-- ---------------------------------------------------------------------------
+-- 5b. Private contact details and contact requests
+-- The author's email / mobile / social handle for a post are readable only by
+-- the author, admins, and students whose contact request the author approved.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.post_contacts (
+  post_id  bigint primary key references public.posts (id) on delete cascade,
+  email    text check (char_length(email) <= 120),
+  mobile   text check (char_length(mobile) <= 40),
+  social   text check (char_length(social) <= 120)
+);
+
+create table if not exists public.contact_requests (
+  id            bigint generated always as identity primary key,
+  post_id       bigint not null references public.posts (id) on delete cascade,
+  requester_id  uuid not null default auth.uid()
+                references public.profiles (id) on delete cascade,
+  status        text not null default 'pending'
+                check (status in ('pending', 'approved', 'declined')),
+  created_at    timestamptz not null default now(),
+  unique (post_id, requester_id)
+);
+
+-- SECURITY DEFINER helpers so the rules below don't depend on each other's RLS.
+create or replace function public.owns_post(pid bigint)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.posts p where p.id = pid and p.author_id = auth.uid())
+$$;
+create or replace function public.contact_approved(pid bigint)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.contact_requests r
+                 where r.post_id = pid and r.requester_id = auth.uid() and r.status = 'approved')
+$$;
+revoke execute on function public.owns_post(bigint) from anon, public;
+revoke execute on function public.contact_approved(bigint) from anon, public;
+grant execute on function public.owns_post(bigint) to authenticated;
+grant execute on function public.contact_approved(bigint) to authenticated;
+
+alter table public.post_contacts enable row level security;
+
+drop policy if exists "Authors add contact details" on public.post_contacts;
+create policy "Authors add contact details"
+  on public.post_contacts for insert to authenticated
+  with check (public.owns_post(post_id));
+
+drop policy if exists "Authors, admins and approved students read contact details" on public.post_contacts;
+create policy "Authors, admins and approved students read contact details"
+  on public.post_contacts for select to authenticated
+  using (public.owns_post(post_id) or public.is_admin() or public.contact_approved(post_id));
+
+revoke insert, update, delete, select on public.post_contacts from anon, authenticated;
+grant select, insert on public.post_contacts to authenticated;
+
+alter table public.contact_requests enable row level security;
+
+drop policy if exists "Students request contact details" on public.contact_requests;
+create policy "Students request contact details"
+  on public.contact_requests for insert to authenticated
+  with check (requester_id = auth.uid() and public.is_verified()
+              and not public.owns_post(post_id));
+
+drop policy if exists "Requesters and authors see requests" on public.contact_requests;
+create policy "Requesters and authors see requests"
+  on public.contact_requests for select to authenticated
+  using (requester_id = auth.uid() or public.owns_post(post_id) or public.is_admin());
+
+drop policy if exists "Authors answer requests" on public.contact_requests;
+create policy "Authors answer requests"
+  on public.contact_requests for update to authenticated
+  using (public.owns_post(post_id)) with check (public.owns_post(post_id));
+
+revoke insert, update, delete, select on public.contact_requests from anon, authenticated;
+grant select on public.contact_requests to authenticated;
+grant insert (post_id) on public.contact_requests to authenticated;
+grant update (status) on public.contact_requests to authenticated;
+
+
+-- ---------------------------------------------------------------------------
+-- 5c. Photos: public bucket, JPEG only, 5 MB each, uploads into <user id>/...
+-- ---------------------------------------------------------------------------
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('post-images', 'post-images', true, 5242880, array['image/jpeg'])
+on conflict (id) do update
+  set public = true, file_size_limit = 5242880, allowed_mime_types = array['image/jpeg'];
+
+drop policy if exists "Students upload their own post photos" on storage.objects;
+create policy "Students upload their own post photos"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'post-images'
+              and (storage.foldername(name))[1] = auth.uid()::text
+              and public.is_verified());
+
+drop policy if exists "Students delete their own post photos" on storage.objects;
+create policy "Students delete their own post photos"
+  on storage.objects for delete to authenticated
+  using (bucket_id = 'post-images' and (storage.foldername(name))[1] = auth.uid()::text);
 
 
 -- ---------------------------------------------------------------------------
