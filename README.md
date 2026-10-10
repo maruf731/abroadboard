@@ -20,7 +20,7 @@ The site works straight away in **demo mode**, which uses sample data saved only
 | `js/app.js` | What the pages show and do |
 | `supabase/schema.sql` | Database tables and security rules. Run it once in Supabase. |
 | `supabase/seed.sql` | Optional sample events and meetup posts |
-| `assets/favicon.svg` | The "ab" browser-tab icon |
+| `assets/logo.svg`, `assets/favicon.svg` | The globe logo and browser-tab icon |
 
 ### Where each user story lives
 
@@ -32,6 +32,7 @@ The site works straight away in **demo mode**, which uses sample data saved only
 | 4 Tips on what to write | "What to include" box in the new-post form |
 | 5 Ads | `AD_SLOT` in `app.js`, sponsor panel in `index.html` |
 | 6 Student email only | `INSTITUTIONS` in `config.js` and `isStudentEmail()` in the browser; `allowed_email_domains()`, `is_student()` and `hook_uoa_only` in the database |
+| English / 中文 switch | `js/i18n.js` (Mandarin text, keyed by the English); `data-i18n` marks static text in `index.html`. Student posts stay in the language they were written in. |
 | Privacy notice + consent | `privacyNotice()` in `app.js`, shown on the Join page and at `#privacy`; consent saved in `profiles.privacy_consent_at` |
 | 7 Categories + custom | `CATEGORIES` in `app.js` |
 | 8 Report button | `reports` table; admins see "Reported ×n" |

@@ -35,9 +35,12 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* Header */
 header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
 .bar{display:flex;align-items:center;gap:16px;padding-block:12px}
-.logo{display:flex;align-items:flex-end;text-decoration:none;color:var(--ink);font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:-.03em;line-height:1}
-.logo .sq{position:relative;background:var(--oat);color:#45062E;padding:14px 3px 2px 6px;margin-right:1px}
-.logo .sq::before{content:"";position:absolute;left:-5px;top:-5px;width:17px;height:17px;border-radius:50%;background:var(--brick)}
+.logo{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);line-height:1}
+.logo .globe{width:46px;height:50px;flex:none;color:var(--ink)}
+.logo .word{font-family:Arial,Helvetica,sans-serif;font-weight:700;font-size:30px;letter-spacing:-.02em}
+@media (max-width:420px){.logo .globe{width:32px;height:35px}.logo .word{font-size:24px}}
+.lang-btn{font:inherit;font-size:14px;font-weight:700;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:99px;padding:5px 12px;cursor:pointer;white-space:nowrap}
+.lang-btn:hover{border-color:var(--copper)}
 .demo-pill{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:2px 8px;white-space:nowrap}
 .bar .spacer{flex:1}
 @media (max-width:480px){.demo-pill{display:none}.who span{display:none}}
@@ -65,6 +68,9 @@ main{padding-block:28px 56px}
 .intro{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px}
 .intro h1{font-size:clamp(26px,4.2vw,38px);font-weight:800}
 .intro p{color:var(--ink-soft);max-width:60ch;margin-top:6px}
+.intro p a{color:inherit;text-underline-offset:3px}
+.intro p b{color:var(--ink)}
+.intro p+p{margin-top:8px}
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:28px;align-items:start}
 @media (max-width:880px){.layout{grid-template-columns:minmax(0,1fr)}}
 
