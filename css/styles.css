@@ -338,3 +338,4 @@ img.ph.broken{opacity:.25}
 .contact-panel p{margin-bottom:14px}
 .contact-panel .btn{width:100%;white-space:normal;overflow-wrap:anywhere}
 @media (max-width:880px){.contact-panel{position:static}}
+.fee-note{display:block}

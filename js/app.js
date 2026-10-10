@@ -17,6 +17,9 @@ const VIEWS = ["board", "market", "events", "campus", "food", "faq", "join", "pr
 const NOT_CONFIRMED = "Confirm that you study in Auckland (on your account page) before posting.";
 
 const $ = (s) => document.querySelector(s);
+// Sample posts and events have Mandarin in i18n.js (keyed by their English text);
+// anything students write themselves is shown as written.
+const tx = (s) => esc(s ? t(s) : s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 const freshJoin = () => ({ stage: "email", email: "", name: "", country: "", campus: "", auckland: false, consent: false, error: "", busy: false });
@@ -149,7 +152,7 @@ function audienceChips(p) {
   const bits = [];
   if (p.audienceGender && p.audienceGender !== "any") bits.push(t(GENDERS[p.audienceGender] || p.audienceGender));
   if (p.audienceSleeper && p.audienceSleeper !== "any") bits.push(t(SLEEPERS[p.audienceSleeper] || p.audienceSleeper));
-  if (p.audienceNote) bits.push(esc(p.audienceNote));
+  if (p.audienceNote) bits.push(tx(p.audienceNote));
   if (!bits.length) return "";
   return `<div class="audience"><span class="lbl">${t("For:")}</span>${bits.map((b) => `<span class="pill soft">${b}</span>`).join("")}</div>`;
 }
@@ -171,7 +174,7 @@ function revealed(c) {
 // Contact details are hidden. Others ask for them; the author decides who sees them.
 function contactBlock(p) {
   const methods = p.contactMethods || [];
-  if (!methods.length) return p.contact ? `<div class="contact-row"><span class="contact">${esc(p.contact)}</span></div>` : "";
+  if (!methods.length) return p.contact ? `<div class="contact-row"><span class="contact">${tx(p.contact)}</span></div>` : "";
   const how = `<span class="methods">${t("Contact by:")} ${methods.map((m) => t(METHODS[m] || m)).join(" · ")}</span>`;
   const { requests, contacts } = state.contactInfo;
   const c = contacts[p.id];
@@ -195,14 +198,14 @@ function contactBlock(p) {
   return `<div class="contact-row">${how}<button class="btn btn-ghost btn-sm" data-request="${p.id}">${t("Request contact details")}</button></div>`;
 }
 
-const byline = (p) => `<span>${esc(p.authorName)}${p.authorCountry ? " · " + esc(p.authorCountry) : ""}</span><span>·</span><span>${timeAgo(p.createdAt)}</span>`;
+const byline = (p) => `<span>${esc(p.authorName)}${p.authorCountry ? " · " + tx(p.authorCountry) : ""}</span><span>·</span><span>${timeAgo(p.createdAt)}</span>`;
 
 function postCard(p) {
   const { total } = reportInfo(p.id);
   return `<article class="post${state.user?.isAdmin && total ? " is-reported" : ""}">
     <div class="post-head"><span class="tag">${esc(t(p.category))}</span>${byline(p)}</div>
-    <h3>${esc(p.title)}</h3>
-    <p class="body">${esc(p.body)}</p>
+    <h3>${tx(p.title)}</h3>
+    <p class="body">${tx(p.body)}</p>
     ${photos(p)}
     ${audienceChips(p)}
     ${contactBlock(p)}
@@ -219,10 +222,10 @@ function listingCard(p) {
   return `<article class="listing${state.user?.isAdmin && total ? " is-reported" : ""}">
     ${cover}
     <div class="listing-body">
-      <div class="price-row"><span class="price">${esc(p.price || t("Ask"))}</span>${p.condition ? `<span class="pill soft">${esc(t(p.condition))}</span>` : ""}</div>
-      <h3>${esc(p.title)}</h3>
+      <div class="price-row"><span class="price">${(p.price ? tx(p.price) : t("Ask"))}</span>${p.condition ? `<span class="pill soft">${esc(t(p.condition))}</span>` : ""}</div>
+      <h3>${tx(p.title)}</h3>
       <div class="post-head"><span class="tag">${esc(t(p.category))}</span>${byline(p)}</div>
-      <p class="body">${esc(p.body)}</p>
+      <p class="body">${tx(p.body)}</p>
       ${audienceChips(p)}
       ${contactBlock(p)}
       <div class="post-foot"><span class="grow"></span>${expiry(p)}${reportControl(p)}${deleteControl("post", p.id, p.authorId)}</div>
@@ -239,7 +242,7 @@ function chipsFor(list, base, current) {
 const matches = (p, filter, query) => {
   const q = query.trim().toLowerCase();
   return (filter === "All" || p.category === filter) &&
-    (!q || `${p.title} ${p.body} ${p.category} ${p.audienceNote || ""}`.toLowerCase().includes(q));
+    (!q || `${p.title} ${p.body} ${p.category} ${p.audienceNote || ""} ${t(p.title)} ${t(p.body)} ${t(p.category)}`.toLowerCase().includes(q));
 };
 
 // Ad slot (Story 5). Replace the inner HTML with your Google AdSense <ins> tag once approved.
@@ -294,7 +297,7 @@ function renderEvents() {
     const pending = e.paymentStatus === "pending" ? `<span class="pill warn">${t("Waiting for payment")}</span>` : "";
     const del = deleteControl("event", e.id, e.hostId);
     return `<article class="event"><div class="date"><div class="m">${d.toLocaleString(locale(), { month: "short" })}</div><div class="d">${d.getDate()}</div></div>
-      <div><h3>${esc(e.title)}</h3><div class="meta">${d.toLocaleString(locale(), { weekday: "long" })} · ${esc(e.venue)} · ${t("hosted by {name}", { name: esc(e.hostName) })}</div><p>${esc(e.blurb)}</p>
+      <div><h3>${tx(e.title)}</h3><div class="meta">${d.toLocaleString(locale(), { weekday: "long" })} · ${tx(e.venue)} · ${t("hosted by {name}", { name: esc(e.hostName) })}</div><p>${tx(e.blurb)}</p>
       ${pending || del ? `<div class="foot">${pending}${del}</div>` : ""}</div></article>`;
   }).join("");
   if (state.posts) renderBoard(); // keeps the event count in the sidebar current
@@ -308,9 +311,9 @@ function renderFood() {
   if (!state.food.length) { box.innerHTML = `<div class="empty">${t("No tips yet. Share the first one.")}</div>`; return; }
   box.innerHTML = state.food.map((f) => `<article class="post">
     <div class="post-head"><span class="tag">${t("Tip")}</span><span>${esc(f.authorName)} · ${timeAgo(f.createdAt)}</span></div>
-    <h3>${esc(f.title)}</h3><p class="body">${esc(f.body)}</p>
+    <h3>${tx(f.title)}</h3><p class="body">${tx(f.body)}</p>
     ${photos(f)}
-    <div class="post-foot"><span class="price">${esc(f.price || "")}</span><span class="grow"></span>${deleteControl("post", f.id, f.authorId)}</div></article>`).join("");
+    <div class="post-foot"><span class="price">${tx(f.price || "")}</span><span class="grow"></span>${deleteControl("post", f.id, f.authorId)}</div></article>`).join("");
   markLoaded(box);
 }
 

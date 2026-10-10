@@ -233,7 +233,7 @@ async function createLive() {
 // DEMO: no server. Sample data kept in this browser's localStorage.
 // ---------------------------------------------------------------------------
 function createDemo() {
-  const KEY = "abroadboard-demo-v3";
+  const KEY = "abroadboard-demo-v4";
   const listeners = [];
   let S;
 
@@ -247,27 +247,33 @@ function createDemo() {
     return {
       user: null, admin: false, nextId: 100, reports: [], requests: [],
       contacts: {},
+      // Same samples as supabase/seed.sql, so they have Mandarin in i18n.js.
       posts: [
-        P(1, "board", "Meetups", "Anyone up for a Rangitoto hike this Sunday?", "Planning to catch the morning ferry from downtown and walk to the summit. Slow pace, lots of photo stops. Bring water and lunch.", "Mei", "Taiwan", 0.15, { contactMethods: ["social"] }),
-        P(2, "board", "Housing", "Room free in a 4-bedroom flat near Grafton", "Quiet flat, two other internationals and one Kiwi. 15 min walk to the City Campus. Available from 1 November.", "Arjun", "India", 1.2, { audienceGender: "women", audienceSleeper: "light", audienceNote: "Non-smoker", contactMethods: ["email", "mobile"] }),
-        P(4, "board", "Study buddies", "ENGGEN study group, Tuesday evenings", "Looking for 3–4 people to go through lecture content and past papers together. Library group rooms.", "Nazia", "Bangladesh", 3.1),
-        P(5, "board", "Help", "How do I get an IRD number for part-time work?", "Just got my first casual job offer. What documents did you need, and how long did it take?", "Zihou", "China", 5.6),
-        P(6, "board", "Meetups", "Casual cricket in the Domain, Saturday 2pm", "All levels welcome. We have a bat and tennis balls. Look for the red umbrella.", "Vishal", "India", 8.3),
-        P(7, "board", "Meetups", "Board games night: bring a snack from home", "Sharing food from our home countries plus Catan and Codenames. Around 8 people so far.", "Sofie", "Denmark", 12.5),
-        P(30, "market", "Kitchen", "Rice cooker, 5-cup", "Works perfectly. Leaving NZ at the end of semester. Pick-up near Symonds St.", "Lukas", "Germany", 2.4, { price: "$15", condition: "Good", contactMethods: ["mobile"] }),
-        P(31, "market", "Bikes & transport", "Commuter bike, fits 160–175 cm", "Includes lock and helmet. Great for getting up the hill to campus.", "Megha", "India", 4.2, { price: "$120", condition: "Like new", contactMethods: ["email", "social"] }),
-        P(32, "market", "Books & study", "ENGGEN 131 textbook + calculator", "Barely used. Calculator is the approved exam model.", "Nazia", "Bangladesh", 6, { price: "$40", condition: "Like new" }),
-        P(33, "market", "Furniture", "Desk lamp and study chair", "Moving out, both in good condition. Free if you pick up this weekend.", "Sofie", "Denmark", 9, { price: "Free", condition: "Good" }),
-        P(20, "food", "Tip", "Supermarket markdowns after 7pm", "Bakery and deli items often get reduced near closing time.", "Lukas", "Germany", 1, { price: "50% off" }),
-        P(21, "food", "Tip", "Weekend vege market", "Buy a week of fruit and vegetables in one trip. Go near closing for the best deals.", "Nazia", "Bangladesh", 2, { price: "~$20/week" }),
+        P(1, "board", "Meetups", "Rangitoto hike this Sunday, who's in?", "Catching the morning ferry from downtown and walking to the summit. Slow pace with lots of photo stops. Bring water and lunch.", "Mei", "Taiwan", 0.15, { contactMethods: ["social"] }),
+        P(2, "board", "Housing", "Room available in a Mt Eden flat from 1 November", "Furnished double room in a 3-bedroom flat, 10 minutes by bus to the city. $230 a week including power and Wi-Fi. Looking for a tidy, quiet flatmate.", "Arjun", "India", 1.2, { audienceSleeper: "light", audienceNote: "Non-smoker", contactMethods: ["email", "mobile"] }),
+        P(3, "board", "Housing", "Looking for a third flatmate near the city campuses", "Two students looking for one more person to share a 3-bedroom apartment in the CBD from December. About $260 a week each.", "Sofie", "Denmark", 2.5, { audienceGender: "women" }),
+        P(4, "board", "Study buddies", "Statistics study partner wanted", "Taking first-year statistics and want someone to go through tutorial questions with. Weekdays after 4pm at any city library.", "Nazia", "Bangladesh", 3.1),
+        P(5, "board", "Help", "How do I get an IRD number for part-time work?", "Got my first casual job offer. What documents did you need, and how long did it take?", "Zihou", "China", 5.6),
+        P(6, "board", "Meetups", "Casual cricket in the Domain, Saturday 2pm", "All levels welcome. We have a bat and tennis balls. Look for the red umbrella near the duck pond.", "Vishal", "India", 8.3),
+        P(7, "board", "Meetups", "Board games and snacks from home, Friday night", "Catan, Codenames and Uno, plus food from our home countries to share. Around 8 people so far, room for more.", "Sofie", "Denmark", 12.5),
+        P(8, "board", "Study buddies", "IELTS speaking practice partner", "Preparing for the IELTS speaking test. Happy to meet twice a week on campus or online to practise together.", "Minh", "Vietnam", 4),
+        P(9, "board", "Help", "Which mobile plan is best for students?", "Just arrived and need a SIM card. Which provider gives the best value for data and for calling home?", "Lukas", "Germany", 0.6),
+        P(30, "market", "Kitchen", "Rice cooker and kettle bundle", "Both work perfectly. Leaving New Zealand in December.", "Lukas", "Germany", 2.4, { price: "$20", condition: "Good", contactMethods: ["mobile"] }),
+        P(31, "market", "Bikes & transport", "City bike with lock and helmet", "Gears work well, a few small scratches. Fits riders about 160 to 180 cm tall.", "Megha", "India", 4.2, { price: "$120", condition: "Fair", contactMethods: ["email", "social"] }),
+        P(32, "market", "Books & study", "First-year economics textbook", "Some highlighting in the first chapters, otherwise clean. Pick up on campus.", "Nazia", "Bangladesh", 6, { price: "$25", condition: "Good" }),
+        P(33, "market", "Furniture", "Study desk and chair", "White desk, 120 cm wide, with a matching chair. Pick up in Newmarket.", "Sofie", "Denmark", 9, { price: "$45", condition: "Good" }),
+        P(34, "market", "Electronics", "27-inch monitor with HDMI cable", "Barely used and works perfectly. Great as a second screen for assignments.", "Arjun", "India", 1.5, { price: "$90", condition: "Like new" }),
+        P(20, "food", "Tip", "Supermarket markdowns after 7pm", "Bakery and deli items are often reduced near closing time. Look for the yellow stickers.", "Lukas", "Germany", 1, { price: "Up to 50% off" }),
+        P(21, "food", "Tip", "Weekend vege market", "Buy a week of fruit and vegetables in one trip. Go near closing time for the best deals.", "Nazia", "Bangladesh", 2, { price: "~$20/week" }),
         P(22, "food", "Tip", "Cook-once, eat-three-times dal", "Lentils, onion, tomato and spices. Freezes well and costs very little per serve.", "Arjun", "India", 4, { price: "~$2/serve" }),
-        P(23, "food", "Tip", "Bring your own lunch box", "Microwaves are available in several student spaces on campus. Ask around in your faculty.", "Mei", "Taiwan", 6, { price: "Free" }),
+        P(23, "food", "Tip", "Bring your own lunch box", "Most campuses have microwaves in student lounges. Packing lunch can save around $60 a week.", "Mei", "Taiwan", 6, { price: "Free" }),
       ],
       events: [
-        { id: 1, title: "International welcome potluck", date: inDays(3), venue: "Albert Park, by the fountain", blurb: "Bring a dish from home and meet other new arrivals. Plates provided.", hostId: "sample-g7", hostName: "Group 7", paymentStatus: "demo_paid" },
-        { id: 2, title: "Beach afternoon at Mission Bay", date: inDays(6), venue: "Mission Bay, meet at the bus stop", blurb: "Swimming if it's warm, ice cream if it's not. Bus from the city centre.", hostId: "sample-mei", hostName: "Mei", paymentStatus: "demo_paid" },
-        { id: 3, title: "Karaoke night", date: inDays(9), venue: "Central city, details on sign-up", blurb: "Songs in every language welcome. Split cost for a room of 10.", hostId: "sample-s", hostName: "Sathvik", paymentStatus: "demo_paid" },
-        { id: 4, title: "Budget grocery walk", date: inDays(12), venue: "Meet outside the General Library", blurb: "We visit two supermarkets and a vege market and compare prices for a week of meals.", hostId: "sample-n", hostName: "Nazia", paymentStatus: "demo_paid" },
+        { id: 1, title: "International welcome potluck", date: inDays(3), venue: "Albert Park, by the fountain", blurb: "Bring a dish from home and meet other new arrivals from every Auckland campus. Plates and cutlery provided.", hostId: "sample-g7", hostName: "Group 7", paymentStatus: "demo_paid" },
+        { id: 2, title: "Sunset walk up Maungawhau / Mt Eden", date: inDays(6), venue: "Meet at the Mt Eden summit car park", blurb: "An easy 30-minute walk to the top for city views at sunset. Wear good shoes and bring a jacket.", hostId: "sample-mei", hostName: "Mei", paymentStatus: "demo_paid" },
+        { id: 3, title: "Night market food crawl", date: inDays(9), venue: "Meet at the night market entrance", blurb: "Try street food from a dozen countries for under $20. We will split into small groups so nobody gets lost.", hostId: "sample-s", hostName: "Sathvik", paymentStatus: "demo_paid" },
+        { id: 4, title: "Budget grocery walk", date: inDays(12), venue: "Meet outside Britomart station", blurb: "We visit two supermarkets and a vege market and compare prices for a week of meals. Bring a reusable bag.", hostId: "sample-n", hostName: "Nazia", paymentStatus: "demo_paid" },
+        { id: 5, title: "Free museum afternoon", date: inDays(13), venue: "Auckland War Memorial Museum, main entrance", blurb: "Entry is free for Auckland residents with ID. We will visit the Māori Court and the volcanoes gallery together.", hostId: "sample-g7", hostName: "Group 7", paymentStatus: "demo_paid" },
       ],
     };
   }
