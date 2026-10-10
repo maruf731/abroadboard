@@ -2,7 +2,7 @@
 // whether Supabase is connected (live) or not (demo).
 
 import { createBackend, isStudentEmail, todayISO } from "./data.js";
-import { INSTITUTIONS, CAMPUSES, MAX_PHOTOS, MAX_PHOTO_MB, EXPIRY_DAYS, EVENT_FEE_NZD, PRIVACY_VERSION, PRIVACY_CONTACT } from "./config.js";
+import { INSTITUTIONS, CAMPUSES, MAX_PHOTOS, MAX_PHOTO_MB, EXPIRY_DAYS, EVENT_FEE_NZD, PRIVACY_VERSION, PRIVACY_CONTACT, SIGNUP_CODE } from "./config.js";
 import { t, getLang, setLang, locale, applyStatic } from "./i18n.js";
 
 const DAY = 864e5;
@@ -438,7 +438,7 @@ function renderJoin() {
 
   if (j.stage === "email") {
     const ready = j.consent && j.auckland && !j.busy;
-    box.innerHTML = `<h1>${t("Join abroadboard")}</h1><p>${t("Use your student email from an Auckland university or college. We'll email you a one-time code to type in here, so there's no password to remember.")}</p>
+    box.innerHTML = `<h1>${t("Join abroadboard")}</h1><p>${t(SIGNUP_CODE ? "Use your student email from an Auckland university or college, then enter your verification code to create your profile. There's no password to remember." : "Use your student email from an Auckland university or college. We'll email you a one-time code to type in here, so there's no password to remember.")}</p>
       <form id="joinForm" novalidate>
         <div class="field"><label for="jEmail">${t("Student email")}</label><input id="jEmail" type="email" autocomplete="email" placeholder="you@aucklanduni.ac.nz" value="${esc(j.email)}">
           ${institutionList()}</div>
@@ -451,7 +451,7 @@ function renderJoin() {
         <label class="consent"><input type="checkbox" id="jConsent" ${j.consent ? "checked" : ""}>
           <span>${t("I have read the privacy notice and agree to abroadboard collecting and using my information as described.")}</span></label>
         ${j.error ? `<p class="err">${esc(t(j.error))}</p>` : ""}
-        <div class="actions"><button class="btn btn-primary" type="submit" id="jSubmit" ${ready ? "" : "disabled"}>${t(j.busy ? "Sending…" : "Email me a sign-in code")}</button></div>
+        <div class="actions"><button class="btn btn-primary" type="submit" id="jSubmit" ${ready ? "" : "disabled"}>${t(j.busy ? "Sending…" : SIGNUP_CODE ? "Sign up" : "Email me a sign-in code")}</button></div>
       </form>`;
     const sync = () => { j.consent = $("#jConsent").checked; j.auckland = $("#jAuckland").checked; $("#jSubmit").disabled = j.busy || !j.consent || !j.auckland; };
     $("#jConsent").onchange = sync; $("#jAuckland").onchange = sync;
@@ -473,17 +473,19 @@ function renderJoin() {
       $(j.stage === "code" ? "#jCode" : "#jEmail")?.focus();
     };
   } else {
-    const intro = t("We emailed a sign-in code to <b>{email}</b>. Type it below to sign in. It can take a minute to arrive and may land in junk mail.", { email: esc(j.email) })
-      + (db.mode === "demo" ? `<br><span class="muted">${t("Demo mode: any 6 digits will work.")}</span>` : "");
-    box.innerHTML = `<h1>${t("Enter your code")}</h1><p>${intro}</p>
+    const intro = SIGNUP_CODE
+      ? t("Type your verification code to sign in as <b>{email}</b>. New students get a profile straight away.", { email: esc(j.email) })
+      : t("We emailed a sign-in code to <b>{email}</b>. Type it below to sign in. It can take a minute to arrive and may land in junk mail.", { email: esc(j.email) })
+        + (db.mode === "demo" ? `<br><span class="muted">${t("Demo mode: any 6 digits will work.")}</span>` : "");
+    box.innerHTML = `<h1>${t(SIGNUP_CODE ? "Enter your verification code" : "Enter your code")}</h1><p>${intro}</p>
       <form id="codeForm" novalidate>
-        <div class="field"><label for="jCode">${t("Sign-in code")}</label><input id="jCode" class="code-input" inputmode="numeric" maxlength="8" placeholder="123456" autocomplete="one-time-code"></div>
+        <div class="field"><label for="jCode">${t(SIGNUP_CODE ? "Verification code" : "Sign-in code")}</label><input id="jCode" class="code-input" inputmode="numeric" maxlength="8" placeholder="123456" autocomplete="one-time-code"></div>
         ${j.error ? `<p class="err">${esc(t(j.error))}</p>` : ""}
-        <p class="resend">${t("Didn't get it?")} <button class="link-btn" type="button" id="jResend">${t("Send a new code")}</button></p>
+        ${SIGNUP_CODE ? "" : `<p class="resend">${t("Didn't get it?")} <button class="link-btn" type="button" id="jResend">${t("Send a new code")}</button></p>`}
         <div class="actions"><button class="btn btn-ghost" type="button" id="jBack">${t("Use a different email")}</button><button class="btn btn-primary" type="submit" ${j.busy ? "disabled" : ""}>${t(j.busy ? "Checking…" : "Sign in")}</button></div>
       </form>`;
     $("#jBack").onclick = () => { j.stage = "email"; j.error = ""; renderJoin(); };
-    $("#jResend").onclick = async () => {
+    if (!SIGNUP_CODE) $("#jResend").onclick = async () => {
       try { await db.sendCode(j.email, { campus: j.campus }); j.error = ""; renderJoin(); toast("We sent a new code"); }
       catch (err) { j.error = err.message; renderJoin(); }
     };
@@ -491,7 +493,7 @@ function renderJoin() {
     $("#codeForm").onsubmit = async (e) => {
       e.preventDefault();
       const code = $("#jCode").value.trim();
-      if (!/^\d{6,8}$/.test(code)) { j.error = "Enter the code from the email (6 digits or more)."; renderJoin(); $("#jCode").focus(); return; }
+      if (!/^\d{5,8}$/.test(code)) { j.error = SIGNUP_CODE ? "Enter your verification code." : "Enter the code from the email (6 digits or more)."; renderJoin(); $("#jCode").focus(); return; }
       j.busy = true; j.error = ""; renderJoin();
       try {
         await db.verifyCode(j.email, code);

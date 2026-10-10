@@ -1,7 +1,7 @@
 // Data layer. The rest of the site only talks to the object returned by
 // createBackend(), so it works the same with Supabase ("live") or without it ("demo").
 
-import { SUPABASE_URL, SUPABASE_ANON_KEY, ALLOWED_DOMAINS, EXPIRY_DAYS, PRIVACY_VERSION } from "./config.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, ALLOWED_DOMAINS, EXPIRY_DAYS, PRIVACY_VERSION, SIGNUP_CODE } from "./config.js";
 
 const SUPABASE_JS = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm";
 const DAY = 864e5;
@@ -14,6 +14,7 @@ export function isStudentEmail(email) {
 }
 
 const NOT_STUDENT = "Use your student email from one of the Auckland institutions listed below.";
+const WRONG_CODE = SIGNUP_CODE ? "That code isn't right. Check it and try again." : "That code is wrong or has expired. Request a new code and try again.";
 const NOT_CONFIRMED = "Confirm that you study in Auckland (on your account page) before posting.";
 
 // Today's date as YYYY-MM-DD in the visitor's own time zone.
@@ -81,6 +82,25 @@ async function createLive() {
   });
   const uid = async () => (await sb.auth.getSession()).data.session?.user?.id;
 
+  // Fixed-code sign-in (SIGNUP_CODE in config.js): a password account per email,
+  // created on first use. The before-user-created hook still checks the domain.
+  let signupData = {};
+  async function fixedCodeSignIn(email, token) {
+    if (token !== SIGNUP_CODE) throw new Error(WRONG_CODE);
+    const password = `abroadboard-${SIGNUP_CODE}-signin`;
+    const first = await sb.auth.signInWithPassword({ email, password });
+    if (!first.error) return;
+    if (!/invalid login credentials/i.test(first.error.message)) throw friendly(first.error);
+    const { data, error } = await sb.auth.signUp({ email, password, options: { data: signupData } });
+    if (error) throw friendly(error);
+    if (data.session) return;
+    // No session: the email already has an account made another way, or
+    // "Confirm email" is still on in Supabase.
+    throw new Error(data.user?.identities?.length === 0
+      ? "This email already has an account that can't use the sign-up code. Email info@abroadboard.com for help."
+      : "Sign-up with the code isn't switched on yet. Email info@abroadboard.com for help.");
+  }
+
   return {
     mode: "live",
 
@@ -100,20 +120,19 @@ async function createLive() {
       });
     },
     async sendCode(email, { campus } = {}) {
+      // Saved on a new account; the database records consent and Auckland confirmation.
+      signupData = { privacy_consent: true, privacy_version: PRIVACY_VERSION, auckland_confirmed: true, campus };
+      if (SIGNUP_CODE) return; // fixed code (config.js): nothing to email
       // Supabase emails a one-time code ({{ .Token }} in the email template) that the
       // student types into the site. The template may also include a sign-in link.
       const { error } = await sb.auth.signInWithOtp({
         email,
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: window.location.origin + window.location.pathname,
-          // Saved on a new account; the database records consent and Auckland confirmation.
-          data: { privacy_consent: true, privacy_version: PRIVACY_VERSION, auckland_confirmed: true, campus },
-        },
+        options: { shouldCreateUser: true, emailRedirectTo: window.location.origin + window.location.pathname, data: signupData },
       });
       if (error) throw friendly(error);
     },
     async verifyCode(email, token) {
+      if (SIGNUP_CODE) return fixedCodeSignIn(email, token);
       const { error } = await sb.auth.verifyOtp({ email, token, type: "email" });
       if (error) throw friendly(error);
     },
@@ -273,7 +292,7 @@ function createDemo() {
     },
     async verifyCode(email, token) {
       await wait();
-      if (!/^\d{6,8}$/.test(token)) throw new Error("That code is wrong or has expired. Request a new code and try again.");
+      if (SIGNUP_CODE ? token !== SIGNUP_CODE : !/^\d{6,8}$/.test(token)) throw new Error(WRONG_CODE);
       const local = email.split("@")[0];
       S.user = { id: "demo-" + email.toLowerCase(), email: email.toLowerCase(), name: local, country: "",
                  campus: S.pendingCampus || "", aucklandConfirmed: !!S.pendingCampus };

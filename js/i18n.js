@@ -383,6 +383,15 @@ const ZH = {
   "Yes. Tap <b>中文</b> at the top of any page to switch to Simplified Chinese, and <b>English</b> to switch back.": "可以。在任意页面顶部点击<b>中文</b>切换为简体中文，点击<b>English</b>切回英文。",
   "Change your display name and home country on <a href=\"#join\">My account</a>. To delete your account or your data, email <a href=\"mailto:info@abroadboard.com\">info@abroadboard.com</a>.": "在<a href=\"#join\">我的账户</a>页面修改显示名称和家乡国家。如需删除账户或数据，请发邮件至 <a href=\"mailto:info@abroadboard.com\">info@abroadboard.com</a>。",
 
+  "Use your student email from an Auckland university or college, then enter your verification code to create your profile. There's no password to remember.": "请使用奥克兰大学或学院的学生邮箱，然后输入验证码创建个人资料，无需记密码。",
+  "Sign up": "注册",
+  "Type your verification code to sign in as <b>{email}</b>. New students get a profile straight away.": "输入验证码，以 <b>{email}</b> 登录。新同学会立即创建个人资料。",
+  "Enter your verification code": "输入验证码",
+  "Enter your verification code.": "请输入验证码。",
+  "That code isn't right. Check it and try again.": "验证码不正确，请检查后重试。",
+  "This email already has an account that can't use the sign-up code. Email info@abroadboard.com for help.": "这个邮箱已有账户，无法使用注册验证码。如需帮助，请发邮件至 info@abroadboard.com。",
+  "Sign-up with the code isn't switched on yet. Email info@abroadboard.com for help.": "验证码注册尚未开启。如需帮助，请发邮件至 info@abroadboard.com。",
+
   // ---- errors from js/data.js
   "The site couldn't start.": "网站无法启动。",
   "Use your student email from one of the Auckland institutions listed below.": "请使用下方所列奥克兰院校的学生邮箱。",

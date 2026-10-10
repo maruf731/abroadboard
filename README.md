@@ -37,7 +37,7 @@ The site works straight away in **demo mode**, which uses sample data saved only
 | FAQ + contact | `#faq` page in `index.html` (answers marked `data-i18n`); `CONTACT_EMAIL` in `config.js` (info@abroadboard.com), also in the footer and privacy notice |
 | Privacy notice + consent | `privacyNotice()` in `app.js`, shown on the Join page and at `#privacy`; consent saved in `profiles.privacy_consent_at` |
 | Auckland check | Campus-area picker and a required "I study in Auckland" box on the Join page (`aucklandFields()` in `app.js`). Saved as `profiles.campus` and `auckland_confirmed_at`; posting, selling and requesting contact details need it (`is_verified()` in `schema.sql`). |
-| Sign-in code (OTP) | Join page asks for the code from the email (`verifyCode()` in `data.js`). Needs the email template in step 3. |
+| Sign-in code | `SIGNUP_CODE` in `config.js` (now `12345`): students type it after pressing Sign up, and `fixedCodeSignIn()` in `data.js` signs them in or creates the profile. This does not prove they own the inbox, so it is for testing and demos only. It needs **Confirm email** switched off in Supabase (Authentication → Sign In / Providers → Email). Set `SIGNUP_CODE = ""` to go back to emailed codes, which need the email template in step 3. |
 | Buy and Sell | `#market` page, `renderMarket()` and `openDialog("market")` in `app.js`; `posts` with `section = 'market'`, plus `price` and `condition` |
 | Who a post is for | Gender, heavy/light sleeper and a free note (`audience_*` columns), shown as "For:" chips |
 | Private contact details | Authors pick email, mobile and/or social media. Details live in `post_contacts` and stay hidden; others send a request (`contact_requests`) and the author taps Share or Decline. |

@@ -50,6 +50,13 @@ export const MAX_PHOTO_MB = 5;
 // Privacy notice (shown on the Join page and at #privacy). Bump the version when
 // the notice changes; it is saved with each new account as a record of consent.
 export const PRIVACY_VERSION = "2026-10-05";
+// Fixed sign-up code, chosen by the project owner for testing and class demos.
+// While this is set, no email is sent: anyone with an accepted student email who
+// types this code is signed in (a profile is created the first time). It does NOT
+// prove the person owns that inbox. Set it to "" to go back to emailed codes.
+// Needs "Confirm email" switched off in Supabase (Authentication > Sign In / Providers > Email).
+export const SIGNUP_CODE = "12345";
+
 // Where students can reach the abroadboard team (footer, FAQ, privacy notice).
 export const CONTACT_EMAIL = "info@abroadboard.com";
 // Email address people can write to about their data.
