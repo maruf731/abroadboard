@@ -41,10 +41,11 @@
     </div>
     <nav class="tabs" aria-label="Sections" data-i18n-attr="aria-label">
       <a href="#board" data-view="board" data-i18n>Board</a>
-      <a href="#market" data-view="market" data-i18n>Buy &amp; sell</a>
+      <a href="#market" data-view="market" data-i18n>Buy and Sell</a>
       <a href="#events" data-view="events" data-i18n>Events</a>
       <a href="#campus" data-view="campus" data-i18n>Campus tips</a>
       <a href="#food" data-view="food" data-i18n>Food &amp; budget</a>
+      <a href="#faq" data-view="faq" data-i18n>FAQ</a>
       <a href="#join" data-view="join" id="joinTab">Join</a>
     </nav>
   </div>
@@ -57,7 +58,7 @@
       <div>
         <h1 data-i18n>Find your people in Auckland</h1>
         <p data-i18n>This board is all about making connections for <b>international university students in Auckland</b>! Scroll down to see who is looking for a coffee buddy, study partner, or weekend explore group. Or hit <a href="#board" data-new="post"><b>New Post</b></a> to put yourself out there.</p>
-        <p data-i18n>Want to trade gear, find local events, get tips to navigate campus, or grab cheap eats? Use the top menu to jump straight to our <a href="#events"><b>Events</b></a>, <a href="#market"><b>Buy &amp; Sell</b></a>, <a href="#campus"><b>Campus Tips</b></a>, and <a href="#food"><b>Food &amp; Budget</b></a> boards!</p>
+        <p data-i18n>Want to trade gear, find local events, get tips to navigate campus, or grab cheap eats? Use the top menu to jump straight to our <a href="#events"><b>Events</b></a>, <a href="#market"><b>Buy and Sell</b></a>, <a href="#campus"><b>Campus Tips</b></a>, and <a href="#food"><b>Food &amp; Budget</b></a> boards!</p>
       </div>
       <button class="btn btn-primary" data-new="post" data-i18n>+ New post</button>
     </div>
@@ -96,7 +97,7 @@
   <section class="view" id="view-market" hidden>
     <div class="intro">
       <div>
-        <h1 data-i18n>Buy &amp; sell</h1>
+        <h1 data-i18n>Buy and Sell</h1>
         <p data-i18n>Pass on what you don't need and pick up what you do from students near you. Save money, earn a little, and keep good stuff out of landfill.</p>
       </div>
       <button class="btn btn-primary" data-new="market" data-i18n>+ Sell something</button>
@@ -162,6 +163,36 @@
     <div class="food" id="foodList"><div class="loading" data-i18n>Loading tips…</div></div>
   </section>
 
+  <!-- FAQ and contact -->
+  <section class="view" id="view-faq" hidden>
+    <div class="intro">
+      <div>
+        <h1 data-i18n>Frequently asked questions</h1>
+        <p data-i18n>Quick answers about joining, posting and buying and selling on abroadboard.</p>
+      </div>
+    </div>
+    <div class="faq-layout">
+      <div class="faq">
+      <details class="faq-item"><summary data-i18n>Who can join abroadboard?</summary><p data-i18n>Students at one of the 16 accepted Auckland universities and colleges. Sign up with your student email and confirm that you study in Auckland. The full list of accepted emails is on the <a href="#join">Join</a> page.</p></details>
+      <details class="faq-item"><summary data-i18n>How do I sign up?</summary><p data-i18n>Open <a href="#join">Join</a>, enter your student email, pick the area of Auckland you study in, tick the two boxes and press the button. Then type the verification code to create your profile.</p></details>
+      <details class="faq-item"><summary data-i18n>Is it free?</summary><p data-i18n>Yes. Posting on the board, selling items and sharing tips are free. Listing an event costs $5 NZD, which helps keep the site running.</p></details>
+      <details class="faq-item"><summary data-i18n>How does Buy and Sell work?</summary><p data-i18n>Tap <b>+ Sell something</b>, add a price, the condition and up to two photos. Buyers tap <b>Request contact details</b>, and you decide who gets them. Meet in a public place on or near campus, and check the item before you pay.</p></details>
+      <details class="faq-item"><summary data-i18n>Who can see my contact details?</summary><p data-i18n>Nobody, until you tap <b>Share</b> on their request. Your email, mobile or social media handle is never shown publicly on a post.</p></details>
+      <details class="faq-item"><summary data-i18n>What does "For:" on a post mean?</summary><p data-i18n>It shows who the post is meant for, such as women only, light sleepers, or non-smokers. Authors choose this when they post, for example when looking for a flatmate.</p></details>
+      <details class="faq-item"><summary data-i18n>What photos can I add?</summary><p data-i18n>Up to two photos per post, in .jpg or .jpeg format, each 5 MB or smaller. Large photos are resized automatically so they load quickly.</p></details>
+      <details class="faq-item"><summary data-i18n>How long do posts stay up?</summary><p data-i18n>Posts and their photos are removed automatically after 21 days. Events disappear about a week after they happen. You can delete your own post at any time.</p></details>
+      <details class="faq-item"><summary data-i18n>I saw a scam or something inappropriate. What should I do?</summary><p data-i18n>Tap <b>Report</b> on the post and an admin will check it. For anything urgent, email <a href="mailto:info@abroadboard.com">info@abroadboard.com</a>.</p></details>
+      <details class="faq-item"><summary data-i18n>Can I use abroadboard in Chinese?</summary><p data-i18n>Yes. Tap <b>中文</b> at the top of any page to switch to Simplified Chinese, and <b>English</b> to switch back.</p></details>
+      <details class="faq-item"><summary data-i18n>How do I change or delete my account?</summary><p data-i18n>Change your display name and home country on <a href="#join">My account</a>. To delete your account or your data, email <a href="mailto:info@abroadboard.com">info@abroadboard.com</a>.</p></details>
+      </div>
+      <aside class="panel contact-panel">
+        <h4 data-i18n>Contact us</h4>
+        <p data-i18n>Questions, feedback, a problem with your account, or want to advertise? Email the abroadboard team.</p>
+        <a class="btn btn-primary" href="mailto:info@abroadboard.com">info@abroadboard.com</a>
+      </aside>
+    </div>
+  </section>
+
   <!-- JOIN (Story 6) -->
   <section class="view" id="view-join" hidden>
     <div class="join" id="joinBox"></div>
@@ -180,7 +211,9 @@
   <div class="wrap">
     <span data-i18n>abroadboard · ENGGEN 731 Group 7 · University of Auckland student project</span>
     <span style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <a class="link-btn" href="#faq" data-i18n>FAQ</a>
       <a class="link-btn" href="#privacy" data-i18n>Privacy</a>
+      <a class="link-btn" href="mailto:info@abroadboard.com">info@abroadboard.com</a>
       <span id="adminBadge"></span>
       <button class="link-btn" id="adminToggle" hidden>Switch to admin view</button>
       <button class="link-btn" id="resetDemo" hidden>Reset demo data</button>

@@ -74,7 +74,7 @@ const ZH = {
   "Find your people in Auckland": "在奥克兰找到你的朋友",
   "This board is all about making connections for <b>international university students in Auckland</b>! Scroll down to see who is looking for a coffee buddy, study partner, or weekend explore group. Or hit <a href=\"#board\" data-new=\"post\"><b>New Post</b></a> to put yourself out there.":
     "这个留言板专为<b>在奥克兰读大学的国际学生</b>建立联系！向下滚动，看看谁在找咖啡搭子、学习伙伴或周末探索小组。也可以点击<a href=\"#board\" data-new=\"post\"><b>发帖</b></a>，主动认识新朋友。",
-  "Want to trade gear, find local events, get tips to navigate campus, or grab cheap eats? Use the top menu to jump straight to our <a href=\"#events\"><b>Events</b></a>, <a href=\"#market\"><b>Buy &amp; Sell</b></a>, <a href=\"#campus\"><b>Campus Tips</b></a>, and <a href=\"#food\"><b>Food &amp; Budget</b></a> boards!":
+  "Want to trade gear, find local events, get tips to navigate campus, or grab cheap eats? Use the top menu to jump straight to our <a href=\"#events\"><b>Events</b></a>, <a href=\"#market\"><b>Buy and Sell</b></a>, <a href=\"#campus\"><b>Campus Tips</b></a>, and <a href=\"#food\"><b>Food &amp; Budget</b></a> boards!":
     "想交换二手物品、发现本地活动、了解校园攻略，或者找便宜好吃的？用顶部菜单直接进入<a href=\"#events\"><b>活动</b></a>、<a href=\"#market\"><b>买卖</b></a>、<a href=\"#campus\"><b>校园指南</b></a>和<a href=\"#food\"><b>美食与省钱</b></a>版块！",
   "+ New post": "+ 发帖",
   "Search posts": "搜索帖子",
@@ -95,7 +95,7 @@ const ZH = {
   "All": "全部",
   "Meetups": "聚会",
   "Housing": "住房",
-  "Buy & sell": "买卖",
+  "Buy and Sell": "买卖",
   "Study buddies": "学习伙伴",
   "Help": "求助",
   "Tip": "小贴士",
@@ -233,8 +233,7 @@ const ZH = {
   "Event published": "活动已发布",
   "Tip shared": "小贴士已分享",
 
-  // ---- Buy & sell
-  "Buy &amp; sell": "买卖",
+  // ---- Buy and Sell
   "Pass on what you don't need and pick up what you do from students near you. Save money, earn a little, and keep good stuff out of landfill.": "把用不上的东西转给身边的同学，也能淘到你需要的。省钱、赚点零花钱，还能让好东西不被浪费。",
   "+ Sell something": "+ 出售物品",
   "Sell something": "出售物品",
@@ -354,6 +353,35 @@ const ZH = {
   "Send a new code": "重新发送验证码",
   "We sent a new code": "新的验证码已发送",
   "Enter the code from the email (6 digits or more).": "请输入邮件中的验证码（6 位或以上数字）。",
+
+  // ---- FAQ and contact
+  "FAQ": "常见问题",
+  "Frequently asked questions": "常见问题",
+  "Quick answers about joining, posting and buying and selling on abroadboard.": "关于注册、发帖和在 abroadboard 买卖物品的快速解答。",
+  "Contact us": "联系我们",
+  "Questions, feedback, a problem with your account, or want to advertise? Email the abroadboard team.": "有问题、建议、账户遇到困难，或想投放广告？请发邮件给 abroadboard 团队。",
+  "Who can join abroadboard?": "谁可以加入 abroadboard？",
+  "How do I sign up?": "如何注册？",
+  "Is it free?": "免费吗？",
+  "How does Buy and Sell work?": "买卖板块怎么用？",
+  "Who can see my contact details?": "谁能看到我的联系方式？",
+  "What does \"For:\" on a post mean?": "帖子上的“适合：”是什么意思？",
+  "What photos can I add?": "可以上传什么照片？",
+  "How long do posts stay up?": "帖子会保留多久？",
+  "I saw a scam or something inappropriate. What should I do?": "看到诈骗或不当内容怎么办？",
+  "Can I use abroadboard in Chinese?": "可以用中文浏览 abroadboard 吗？",
+  "How do I change or delete my account?": "如何修改或删除我的账户？",
+  "Students at one of the 16 accepted Auckland universities and colleges. Sign up with your student email and confirm that you study in Auckland. The full list of accepted emails is on the <a href=\"#join\">Join</a> page.": "奥克兰 16 所认可大学和学院的学生。用学生邮箱注册，并确认你在奥克兰就读。完整的认可邮箱列表见<a href=\"#join\">加入</a>页面。",
+  "Open <a href=\"#join\">Join</a>, enter your student email, pick the area of Auckland you study in, tick the two boxes and press the button. Then type the verification code to create your profile.": "打开<a href=\"#join\">加入</a>页面，输入学生邮箱，选择你就读的奥克兰区域，勾选两个选项并点击按钮。然后输入验证码即可创建个人资料。",
+  "Yes. Posting on the board, selling items and sharing tips are free. Listing an event costs $5 NZD, which helps keep the site running.": "是的。在留言板发帖、出售物品和分享小贴士都免费。发布活动收费 $5 新西兰元，用于维持网站运营。",
+  "Tap <b>+ Sell something</b>, add a price, the condition and up to two photos. Buyers tap <b>Request contact details</b>, and you decide who gets them. Meet in a public place on or near campus, and check the item before you pay.": "点击<b>+ 出售物品</b>，填写价格、成色，并最多上传两张照片。买家点击<b>申请联系方式</b>，由你决定给谁看。请在校园内或附近的公共场所见面，付款前先检查物品。",
+  "Nobody, until you tap <b>Share</b> on their request. Your email, mobile or social media handle is never shown publicly on a post.": "在你对申请点击<b>分享</b>之前，谁都看不到。你的邮箱、手机或社交媒体账号不会在帖子上公开显示。",
+  "It shows who the post is meant for, such as women only, light sleepers, or non-smokers. Authors choose this when they post, for example when looking for a flatmate.": "它表示这条帖子适合哪些人，例如仅限女生、浅睡眠者或不吸烟者。作者在发帖时选择，比如找室友的时候。",
+  "Up to two photos per post, in .jpg or .jpeg format, each 5 MB or smaller. Large photos are resized automatically so they load quickly.": "每条帖子最多两张照片，.jpg 或 .jpeg 格式，每张不超过 5 MB。大照片会自动压缩，加载更快。",
+  "Posts and their photos are removed automatically after 21 days. Events disappear about a week after they happen. You can delete your own post at any time.": "帖子及其照片会在 21 天后自动删除，活动结束约一周后消失。你也可以随时删除自己的帖子。",
+  "Tap <b>Report</b> on the post and an admin will check it. For anything urgent, email <a href=\"mailto:info@abroadboard.com\">info@abroadboard.com</a>.": "在帖子上点击<b>举报</b>，管理员会进行核查。紧急情况请发邮件至 <a href=\"mailto:info@abroadboard.com\">info@abroadboard.com</a>。",
+  "Yes. Tap <b>中文</b> at the top of any page to switch to Simplified Chinese, and <b>English</b> to switch back.": "可以。在任意页面顶部点击<b>中文</b>切换为简体中文，点击<b>English</b>切回英文。",
+  "Change your display name and home country on <a href=\"#join\">My account</a>. To delete your account or your data, email <a href=\"mailto:info@abroadboard.com\">info@abroadboard.com</a>.": "在<a href=\"#join\">我的账户</a>页面修改显示名称和家乡国家。如需删除账户或数据，请发邮件至 <a href=\"mailto:info@abroadboard.com\">info@abroadboard.com</a>。",
 
   // ---- errors from js/data.js
   "The site couldn't start.": "网站无法启动。",

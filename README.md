@@ -13,7 +13,7 @@ The site works straight away in **demo mode**, which uses sample data saved only
 
 | Path | What it is |
 |---|---|
-| `index.html` | Every page: Board, Buy & sell, Events, Campus tips, Food & budget, Join |
+| `index.html` | Every page: Board, Buy and Sell, Events, Campus tips, Food & budget, Join |
 | `css/styles.css` | Brand colours, fonts and layout (works on phones) |
 | `js/config.js` | **The only file you need to edit to go live**: Supabase URL and key |
 | `js/data.js` | Talks to Supabase, or to the demo data when there are no keys |
@@ -34,10 +34,11 @@ The site works straight away in **demo mode**, which uses sample data saved only
 | 5 Ads | `AD_SLOT` in `app.js`, sponsor panel in `index.html` |
 | 6 Student email only | `INSTITUTIONS` in `config.js` and `isStudentEmail()` in the browser; `allowed_email_domains()`, `is_student()` and `hook_uoa_only` in the database |
 | English / 中文 switch | `js/i18n.js` (Mandarin text, keyed by the English); `data-i18n` marks static text in `index.html`. Student posts stay in the language they were written in. |
+| FAQ + contact | `#faq` page in `index.html` (answers marked `data-i18n`); `CONTACT_EMAIL` in `config.js` (info@abroadboard.com), also in the footer and privacy notice |
 | Privacy notice + consent | `privacyNotice()` in `app.js`, shown on the Join page and at `#privacy`; consent saved in `profiles.privacy_consent_at` |
 | Auckland check | Campus-area picker and a required "I study in Auckland" box on the Join page (`aucklandFields()` in `app.js`). Saved as `profiles.campus` and `auckland_confirmed_at`; posting, selling and requesting contact details need it (`is_verified()` in `schema.sql`). |
 | Sign-in code (OTP) | Join page asks for the code from the email (`verifyCode()` in `data.js`). Needs the email template in step 3. |
-| Buy & sell | `#market` page, `renderMarket()` and `openDialog("market")` in `app.js`; `posts` with `section = 'market'`, plus `price` and `condition` |
+| Buy and Sell | `#market` page, `renderMarket()` and `openDialog("market")` in `app.js`; `posts` with `section = 'market'`, plus `price` and `condition` |
 | Who a post is for | Gender, heavy/light sleeper and a free note (`audience_*` columns), shown as "For:" chips |
 | Private contact details | Authors pick email, mobile and/or social media. Details live in `post_contacts` and stay hidden; others send a request (`contact_requests`) and the author taps Share or Decline. |
 | Photos | Up to 2 .jpg/.jpeg photos per post, 5 MB each, in the `post-images` storage bucket. Resized in the browser before upload; checked again by the bucket. |

@@ -322,3 +322,19 @@ img.ph.broken{opacity:.25}
 #photoDlg img{display:block;max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);object-fit:contain}
 #photoDlg .next{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:28px;line-height:1;cursor:pointer}
 #photoDlg .close{position:absolute;top:8px;right:8px;width:36px;height:36px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:22px;cursor:pointer;z-index:1}
+
+/* FAQ and contact */
+.faq-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:28px;align-items:start}
+@media (max-width:880px){.faq-layout{grid-template-columns:minmax(0,1fr)}}
+.faq{display:flex;flex-direction:column;gap:10px}
+.faq-item{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:0 18px;box-shadow:var(--shadow)}
+.faq-item summary{cursor:pointer;list-style:none;font-family:var(--display);font-weight:600;font-size:16px;padding:15px 28px 15px 0;position:relative}
+.faq-item summary::-webkit-details-marker{display:none}
+.faq-item summary::after{content:"+";position:absolute;right:0;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:var(--chip);display:grid;place-items:center;font-size:17px;color:var(--accent-text)}
+.faq-item[open] summary::after{content:"–"}
+.faq-item[open]{border-color:var(--copper)}
+.faq-item p{color:var(--ink-soft);padding-bottom:16px}
+.contact-panel{position:sticky;top:130px;border-top:4px solid var(--brick)}
+.contact-panel p{margin-bottom:14px}
+.contact-panel .btn{width:100%;white-space:normal;overflow-wrap:anywhere}
+@media (max-width:880px){.contact-panel{position:static}}

@@ -50,9 +50,10 @@ export const MAX_PHOTO_MB = 5;
 // Privacy notice (shown on the Join page and at #privacy). Bump the version when
 // the notice changes; it is saved with each new account as a record of consent.
 export const PRIVACY_VERSION = "2026-10-05";
-// Email address people can write to about their data. Leave empty to show
-// "contact the abroadboard admins" instead.
-export const PRIVACY_CONTACT = "";
+// Where students can reach the abroadboard team (footer, FAQ, privacy notice).
+export const CONTACT_EMAIL = "info@abroadboard.com";
+// Email address people can write to about their data.
+export const PRIVACY_CONTACT = CONTACT_EMAIL;
 
 // Posts disappear after this many days (Story 10). Keep in sync with schema.sql.
 export const EXPIRY_DAYS = 21;

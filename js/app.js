@@ -13,7 +13,7 @@ const CONDITIONS = ["New", "Like new", "Good", "Fair"];
 const GENDERS = { any: "Anyone", women: "Women", men: "Men", nonbinary: "Non-binary people" };
 const SLEEPERS = { any: "Any", light: "Light sleepers", heavy: "Heavy sleepers" };
 const METHODS = { email: "Email", mobile: "Mobile", social: "Social media" };
-const VIEWS = ["board", "market", "events", "campus", "food", "join", "privacy"];
+const VIEWS = ["board", "market", "events", "campus", "food", "faq", "join", "privacy"];
 const NOT_CONFIRMED = "Confirm that you study in Auckland (on your account page) before posting.";
 
 const $ = (s) => document.querySelector(s);
@@ -269,7 +269,7 @@ function renderBoard() {
     ${state.user?.isAdmin ? `<div class="stat"><span>${t("Reported posts to review")}</span><b style="color:var(--accent-text)">${reported}</b></div>` : ""}`;
 }
 
-// ---------------------------------------------------------------- buy & sell
+// ---------------------------------------------------------------- Buy and Sell
 function renderMarket() {
   const box = $("#marketList");
   if (state.errors.market) { box.innerHTML = `<div class="error-box"><b>${t("Couldn't load listings.")}</b> ${esc(t(state.errors.market))}</div>`; return; }
