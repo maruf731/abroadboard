@@ -21,7 +21,7 @@ The site works straight away in **demo mode**, which uses sample data saved only
 | `supabase/schema.sql` | Database tables and security rules. Run it once in Supabase. |
 | `supabase/seed.sql` | Optional sample events and meetup posts |
 | `supabase/email-templates/sign-in.html` | The sign-in email with the one-time code (`{{ .Token }}`) |
-| `assets/logo.svg`, `assets/favicon.svg` | The globe logo and browser-tab icon |
+| `assets/logo.png` | The globe logo, used in the header and as the browser-tab icon |
 
 ### Where each user story lives
 

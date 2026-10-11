@@ -36,9 +36,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
 .bar{display:flex;align-items:center;gap:16px;padding-block:12px}
 .logo{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);line-height:1}
-.logo .globe{width:52px;height:58px;flex:none;color:var(--ink)}
+.logo .globe{width:52px;height:57px;flex:none;object-fit:contain}
 .logo .word{font-family:Arial,Helvetica,sans-serif;font-weight:700;font-size:32px;letter-spacing:-.025em}
-@media (max-width:420px){.logo .globe{width:34px;height:38px}.logo .word{font-size:24px}}
+@media (max-width:420px){.logo .globe{width:36px;height:39px}.logo .word{font-size:24px}}
 .lang-btn{font:inherit;font-size:14px;font-weight:700;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:99px;padding:5px 12px;cursor:pointer;white-space:nowrap}
 .lang-btn:hover{border-color:var(--copper)}
 .demo-pill{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:2px 8px;white-space:nowrap}
