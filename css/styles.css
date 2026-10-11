@@ -36,9 +36,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
 .bar{display:flex;align-items:center;gap:16px;padding-block:12px}
 .logo{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);line-height:1}
-.logo .globe{width:46px;height:50px;flex:none;color:var(--ink)}
-.logo .word{font-family:Arial,Helvetica,sans-serif;font-weight:700;font-size:30px;letter-spacing:-.02em}
-@media (max-width:420px){.logo .globe{width:32px;height:35px}.logo .word{font-size:24px}}
+.logo .globe{width:52px;height:58px;flex:none;color:var(--ink)}
+.logo .word{font-family:Arial,Helvetica,sans-serif;font-weight:700;font-size:32px;letter-spacing:-.025em}
+@media (max-width:420px){.logo .globe{width:34px;height:38px}.logo .word{font-size:24px}}
 .lang-btn{font:inherit;font-size:14px;font-weight:700;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:99px;padding:5px 12px;cursor:pointer;white-space:nowrap}
 .lang-btn:hover{border-color:var(--copper)}
 .demo-pill{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:2px 8px;white-space:nowrap}
@@ -339,3 +339,10 @@ img.ph.broken{opacity:.25}
 .contact-panel .btn{width:100%;white-space:normal;overflow-wrap:anywhere}
 @media (max-width:880px){.contact-panel{position:static}}
 .fee-note{display:block}
+
+/* Sign up / Sign in switch on the Join page */
+.mode-tabs{display:flex;gap:4px;background:var(--surface-2);border-radius:12px;padding:4px;margin-bottom:18px}
+.mode-tabs button{flex:1;border:0;background:transparent;border-radius:9px;padding:9px 12px;font-weight:700;color:var(--ink-soft);cursor:pointer}
+.mode-tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.faq-group{font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-text);margin:14px 0 2px}
+.faq-group:first-child{margin-top:0}

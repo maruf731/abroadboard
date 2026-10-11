@@ -15,6 +15,7 @@ export function isStudentEmail(email) {
 
 const NOT_STUDENT = "Use your student email from one of the Auckland institutions listed below.";
 const WRONG_CODE = SIGNUP_CODE ? "That code isn't right. Check it and try again." : "That code is wrong or has expired. Request a new code and try again.";
+const BAD_LOGIN = "That email and password don't match a profile. New here? Use Sign up instead.";
 const NOT_CONFIRMED = "Confirm that you study in Auckland (on your account page) before posting.";
 
 // Today's date as YYYY-MM-DD in the visitor's own time zone.
@@ -85,9 +86,10 @@ async function createLive() {
   // Fixed-code sign-in (SIGNUP_CODE in config.js): a password account per email,
   // created on first use. The before-user-created hook still checks the domain.
   let signupData = {};
+  const fixedPassword = () => `abroadboard-${SIGNUP_CODE}-signin`;
   async function fixedCodeSignIn(email, token) {
     if (token !== SIGNUP_CODE) throw new Error(WRONG_CODE);
-    const password = `abroadboard-${SIGNUP_CODE}-signin`;
+    const password = fixedPassword();
     const first = await sb.auth.signInWithPassword({ email, password });
     if (!first.error) return;
     if (!/invalid login credentials/i.test(first.error.message)) throw friendly(first.error);
@@ -135,6 +137,12 @@ async function createLive() {
       if (SIGNUP_CODE) return fixedCodeSignIn(email, token);
       const { error } = await sb.auth.verifyOtp({ email, token, type: "email" });
       if (error) throw friendly(error);
+    },
+    // "Sign in" tab for people who already have a profile: email + the shared password (SIGNUP_CODE).
+    async signIn(email, password) {
+      if (!SIGNUP_CODE || password !== SIGNUP_CODE) throw new Error(BAD_LOGIN);
+      const { error } = await sb.auth.signInWithPassword({ email, password: fixedPassword() });
+      if (error) throw /invalid login credentials/i.test(error.message) ? new Error(BAD_LOGIN) : friendly(error);
     },
     async signOut() { await sb.auth.signOut(); },
     async updateProfile(userId, { name, country }) {
@@ -300,11 +308,21 @@ function createDemo() {
       await wait();
       if (SIGNUP_CODE ? token !== SIGNUP_CODE : !/^\d{6,8}$/.test(token)) throw new Error(WRONG_CODE);
       const local = email.split("@")[0];
-      S.user = { id: "demo-" + email.toLowerCase(), email: email.toLowerCase(), name: local, country: "",
+      const known = (S.accounts || {})[email.toLowerCase()];
+      S.user = known || { id: "demo-" + email.toLowerCase(), email: email.toLowerCase(), name: local, country: "",
                  campus: S.pendingCampus || "", aucklandConfirmed: !!S.pendingCampus };
       save(); notify();
     },
-    async signOut() { S.user = null; save(); notify(); },
+    async signIn(email, password) {
+      await wait();
+      const known = (S.accounts || {})[String(email).trim().toLowerCase()];
+      if (!SIGNUP_CODE || password !== SIGNUP_CODE || !known) throw new Error(BAD_LOGIN);
+      S.user = known; save(); notify();
+    },
+    async signOut() {
+      if (S.user) (S.accounts ||= {})[S.user.email] = S.user; // remembered for "Sign in"
+      S.user = null; save(); notify();
+    },
     async updateProfile(_id, { name, country }) { const u = me(); if (name) u.name = name; if (country !== undefined) u.country = country; save(); },
     async confirmAuckland(campus) { const u = me(); u.campus = campus; u.aucklandConfirmed = true; save(); },
 

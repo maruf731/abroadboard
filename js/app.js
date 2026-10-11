@@ -22,7 +22,7 @@ const $ = (s) => document.querySelector(s);
 const tx = (s) => esc(s ? t(s) : s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-const freshJoin = () => ({ stage: "email", email: "", name: "", country: "", campus: "", auckland: false, consent: false, error: "", busy: false });
+const freshJoin = () => ({ mode: "signup", stage: "email", email: "", name: "", country: "", campus: "", auckland: false, consent: false, error: "", busy: false });
 const state = {
   user: null,
   posts: null, market: null, food: null, events: null, // null = still loading
@@ -108,7 +108,8 @@ function renderWho() {
     w.innerHTML = `<span>${t("Signed in as <b>{name}</b>", { name: esc(state.user.name) })}</span> <button class="link-btn" id="signout">${t("Sign out")}</button>`;
     $("#signout").onclick = async () => { await db.signOut(); toast("Signed out"); };
   } else {
-    w.innerHTML = `<a class="btn btn-ghost btn-sm" href="#join">${t("Sign in")}</a>`;
+    w.innerHTML = `<a class="btn btn-ghost btn-sm" href="#join" id="signinLink">${t("Sign in")}</a>`;
+    $("#signinLink").onclick = () => { if (SIGNUP_CODE) { state.join.mode = "signin"; state.join.error = ""; renderJoin(); } };
   }
   $("#joinTab").textContent = t(state.user ? "My account" : "Join");
   $("#adminBadge").innerHTML = state.user?.isAdmin ? `<span class="admin-on">${t("Admin")}</span>` : "";
@@ -439,9 +440,45 @@ function renderJoin() {
     return;
   }
 
+  // Sign up / Sign in switch (sign-in is only offered while the shared code is on).
+  const modeTabs = SIGNUP_CODE ? `<div class="mode-tabs" role="tablist">
+      <button type="button" role="tab" aria-selected="${j.mode !== "signin"}" data-mode="signup">${t("Sign up")}</button>
+      <button type="button" role="tab" aria-selected="${j.mode === "signin"}" data-mode="signin">${t("Sign in")}</button></div>` : "";
+  const bindTabs = () => box.querySelectorAll("[data-mode]").forEach((b) => (b.onclick = () => {
+    j.mode = b.dataset.mode; j.stage = "email"; j.error = ""; renderJoin(); $("#jEmail")?.focus();
+  }));
+
+  if (SIGNUP_CODE && j.mode === "signin") {
+    box.innerHTML = `${modeTabs}<h1>${t("Welcome back")}</h1><p>${t("Sign in with the student email you joined with and your password.")}</p>
+      <form id="signinForm" novalidate>
+        <div class="field"><label for="jEmail">${t("Student email")}</label><input id="jEmail" type="email" autocomplete="username" placeholder="you@aucklanduni.ac.nz" value="${esc(j.email)}"></div>
+        <div class="field"><label for="jPassword">${t("Password")}</label><input id="jPassword" type="password" autocomplete="current-password" inputmode="numeric" maxlength="20"></div>
+        ${j.error ? `<p class="err">${esc(t(j.error))}</p>` : ""}
+        <div class="actions"><button class="btn btn-primary" type="submit" ${j.busy ? "disabled" : ""}>${t(j.busy ? "Checking…" : "Sign in")}</button></div>
+      </form>`;
+    bindTabs();
+    $("#signinForm").onsubmit = async (e) => {
+      e.preventDefault();
+      j.email = $("#jEmail").value.trim();
+      const password = $("#jPassword").value.trim();
+      if (!j.email || !password) { j.error = "Enter your email and password."; renderJoin(); return; }
+      j.busy = true; j.error = ""; renderJoin();
+      try {
+        await db.signIn(j.email, password);
+        state.join = freshJoin();
+        await refreshUser(); loadReports(); loadContacts();
+        toast("Welcome back!");
+        const next = state.afterJoin; state.afterJoin = null;
+        if (next && state.user?.aucklandConfirmed) { location.hash = "#" + next.view; setTimeout(() => openDialog(next.kind), 60); }
+        else if (state.user?.aucklandConfirmed) location.hash = "#board";
+      } catch (err) { j.busy = false; j.error = err.message; renderJoin(); $("#jPassword")?.focus(); }
+    };
+    return;
+  }
+
   if (j.stage === "email") {
     const ready = j.consent && j.auckland && !j.busy;
-    box.innerHTML = `<h1>${t("Join abroadboard")}</h1><p>${t(SIGNUP_CODE ? "Use your student email from an Auckland university or college, then enter your verification code to create your profile. There's no password to remember." : "Use your student email from an Auckland university or college. We'll email you a one-time code to type in here, so there's no password to remember.")}</p>
+    box.innerHTML = `${modeTabs}<h1>${t("Join abroadboard")}</h1><p>${t(SIGNUP_CODE ? "Use your student email from an Auckland university or college, then enter your verification code to create your profile. There's no password to remember." : "Use your student email from an Auckland university or college. We'll email you a one-time code to type in here, so there's no password to remember.")}</p>
       <form id="joinForm" novalidate>
         <div class="field"><label for="jEmail">${t("Student email")}</label><input id="jEmail" type="email" autocomplete="email" placeholder="you@aucklanduni.ac.nz" value="${esc(j.email)}">
           ${institutionList()}</div>
@@ -456,6 +493,7 @@ function renderJoin() {
         ${j.error ? `<p class="err">${esc(t(j.error))}</p>` : ""}
         <div class="actions"><button class="btn btn-primary" type="submit" id="jSubmit" ${ready ? "" : "disabled"}>${t(j.busy ? "Sending…" : SIGNUP_CODE ? "Sign up" : "Email me a sign-in code")}</button></div>
       </form>`;
+    bindTabs();
     const sync = () => { j.consent = $("#jConsent").checked; j.auckland = $("#jAuckland").checked; $("#jSubmit").disabled = j.busy || !j.consent || !j.auckland; };
     $("#jConsent").onchange = sync; $("#jAuckland").onchange = sync;
     $("#jCampus").onchange = (e) => { j.campus = e.target.value; };

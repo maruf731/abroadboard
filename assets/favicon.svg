@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 132">
-  <path d="M46.5 11.8 A52 52 0 1 0 99.8 95.4" fill="none" stroke="#45062E" stroke-width="7"/>
-  <path d="M56 113 L51 127 Q50 130 53 130 L69 130 Q72 130 71 127 L66 113 Z" fill="#45062E"/>
-  <circle cx="65" cy="57" r="49" fill="#A08057"/>
-  <rect x="35" y="29" width="60" height="57" rx="2" fill="#E8D1B3"/>
-  <circle cx="47" cy="42" r="11" fill="#C30004"/>
-  <text x="92" y="81" text-anchor="end" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="36" fill="#45062E" letter-spacing="-1">ab</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="4 6 220 244">
+  <path d="M65.6 25 A103 103 0 1 0 186.8 188.8" fill="none" stroke="#45062E" stroke-width="10" stroke-linecap="butt"/>
+  <path d="M106 213 L100.5 242 Q99.5 247 104.5 247 L134.5 247 Q139.5 247 138.5 242 L133 213 Z" fill="#45062E"/>
+  <circle cx="120" cy="110" r="100" fill="#A08057"/>
+  <rect x="59" y="49" width="121" height="122" rx="3" fill="#E8D1B3"/>
+  <circle cx="89" cy="81" r="23.5" fill="#C30004"/>
+  <text x="175" y="160" text-anchor="end" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="78" fill="#45062E">ab</text>
 </svg>
