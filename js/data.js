@@ -50,7 +50,7 @@ function friendly(error) {
 
 // Fields shared by both backends when a post is created.
 const postRow = (p) => ({
-  section: p.section, category: p.category, title: p.title, body: p.body, price: p.price || null,
+  section: p.section, category: p.category, sport: p.sport || null, title: p.title, body: p.body, price: p.price || null,
   condition: p.condition || null, audience_gender: p.audienceGender || "any",
   audience_sleeper: p.audienceSleeper || "any", audience_note: p.audienceNote || null,
   contact_methods: Object.keys(p.contacts || {}).filter((k) => p.contacts[k]),
@@ -73,7 +73,7 @@ async function createLive() {
   };
   const publicUrl = (path) => sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
   const normPost = (p) => ({
-    id: p.id, section: p.section, category: p.category, title: p.title, body: p.body,
+    id: p.id, section: p.section, category: p.category, sport: p.sport || "", title: p.title, body: p.body,
     contact: p.contact, price: p.price, condition: p.condition,
     audienceGender: p.audience_gender, audienceSleeper: p.audience_sleeper, audienceNote: p.audience_note,
     contactMethods: p.contact_methods || [], imagePaths: p.images || [], images: (p.images || []).map(publicUrl),
@@ -85,8 +85,11 @@ async function createLive() {
 
   // Fixed-code sign-in (SIGNUP_CODE in config.js): a password account per email,
   // created on first use. The before-user-created hook still checks the domain.
+  // What people type is wrapped like this before it is sent, so students type
+  // the code and admin accounts (set up in Supabase) type their own number.
   let signupData = {};
-  const fixedPassword = () => `abroadboard-${SIGNUP_CODE}-signin`;
+  const wrapPassword = (typed) => `abroadboard-${typed}-signin`;
+  const fixedPassword = () => wrapPassword(SIGNUP_CODE);
   async function fixedCodeSignIn(email, token) {
     if (token !== SIGNUP_CODE) throw new Error(WRONG_CODE);
     const password = fixedPassword();
@@ -113,7 +116,8 @@ async function createLive() {
       const { data: p } = await sb.from("profiles").select("*").eq("id", u.id).maybeSingle();
       return { id: u.id, email: u.email, name: p?.display_name || u.email.split("@")[0],
                country: p?.home_country || "", isAdmin: !!p?.is_admin,
-               campus: p?.campus || "", aucklandConfirmed: !!p?.auckland_confirmed_at };
+               campus: p?.campus || "", aucklandConfirmed: !!p?.auckland_confirmed_at,
+               interests: p?.interests || [], notifyInterests: p?.notify_interests !== false };
     },
     onAuthChange(cb) {
       // Supabase advises not to call other Supabase functions inside this callback, hence setTimeout.
@@ -138,17 +142,20 @@ async function createLive() {
       const { error } = await sb.auth.verifyOtp({ email, token, type: "email" });
       if (error) throw friendly(error);
     },
-    // "Sign in" tab for people who already have a profile: email + the shared password (SIGNUP_CODE).
+    // "Sign in" tab for people who already have a profile: email + password
+    // (the shared code for students; admins have their own).
     async signIn(email, password) {
-      if (!SIGNUP_CODE || password !== SIGNUP_CODE) throw new Error(BAD_LOGIN);
-      const { error } = await sb.auth.signInWithPassword({ email, password: fixedPassword() });
+      if (!SIGNUP_CODE || !/^\d{4,12}$/.test(password)) throw new Error(BAD_LOGIN);
+      const { error } = await sb.auth.signInWithPassword({ email, password: wrapPassword(password) });
       if (error) throw /invalid login credentials/i.test(error.message) ? new Error(BAD_LOGIN) : friendly(error);
     },
     async signOut() { await sb.auth.signOut(); },
-    async updateProfile(userId, { name, country }) {
+    async updateProfile(userId, { name, country, interests, notifyInterests }) {
       const patch = {};
       if (name) patch.display_name = name;
       if (country !== undefined) patch.home_country = country || null;
+      if (interests) patch.interests = interests;
+      if (notifyInterests !== undefined) patch.notify_interests = !!notifyInterests;
       if (!Object.keys(patch).length) return;
       check(await sb.from("profiles").update(patch).eq("id", userId));
     },
@@ -158,7 +165,7 @@ async function createLive() {
 
     async listPosts(section) {
       const rows = check(await sb.from("posts")
-        .select("id,section,category,title,body,contact,price,condition,audience_gender,audience_sleeper,audience_note,contact_methods,images,created_at,author_id,author:profiles(display_name,home_country)")
+        .select("id,section,category,sport,title,body,contact,price,condition,audience_gender,audience_sleeper,audience_note,contact_methods,images,created_at,author_id,author:profiles(display_name,home_country)")
         .eq("section", section).order("created_at", { ascending: false }).limit(200));
       return rows.map(normPost);
     },
@@ -234,6 +241,60 @@ async function createLive() {
       const n = check(await sb.from("events").delete({ count: "exact" }).eq("id", id));
       if (!n) throw new Error("You can only delete events you posted.");
     },
+
+    // Categories students asked for. Everyone gets the approved ones; the
+    // requester and admins also see pending and declined ones.
+    async listCategoryRequests() {
+      const rows = check(await sb.from("category_requests")
+        .select("id,name,reason,status,created_at,requested_by,requester:profiles(display_name)").order("created_at"));
+      return rows.map((r) => ({ id: r.id, name: r.name, reason: r.reason || "", status: r.status,
+        requestedBy: r.requested_by, requesterName: r.requester?.display_name || "Student", createdAt: new Date(r.created_at).getTime() }));
+    },
+    async requestCategory(name, reason) {
+      check(await sb.from("category_requests").insert({ name, reason: reason || null }));
+    },
+    async answerCategoryRequest(id, status) {
+      check(await sb.from("category_requests").update({ status }).eq("id", id));
+    },
+
+    async listNotifications() {
+      if (!(await uid())) return [];
+      const rows = check(await sb.from("notifications")
+        .select("id,kind,post_id,thread_id,title,detail,read_at,created_at").order("created_at", { ascending: false }).limit(50));
+      return rows.map((n) => ({ id: n.id, kind: n.kind, postId: n.post_id, threadId: n.thread_id, title: n.title,
+        detail: n.detail || "", read: !!n.read_at, createdAt: new Date(n.created_at).getTime() }));
+    },
+    async markNotificationsRead() {
+      check(await sb.from("notifications").update({ read_at: new Date().toISOString() }).is("read_at", null));
+    },
+    async clearNotifications() {
+      const me = await uid();
+      if (me) check(await sb.from("notifications").delete().eq("user_id", me));
+    },
+
+    // Messages to the admins. Students see their own threads; admins see all.
+    async listThreads() {
+      if (!(await uid())) return [];
+      const rows = check(await sb.from("support_threads")
+        .select("id,kind,subject,status,created_at,updated_at,user_id,user:profiles(display_name,home_country),messages:support_messages(id,body,from_admin,created_at)")
+        .order("updated_at", { ascending: false }));
+      return rows.map((r) => ({ id: r.id, kind: r.kind, subject: r.subject, status: r.status, userId: r.user_id,
+        userName: r.user?.display_name || "Student", userCountry: r.user?.home_country || "",
+        updatedAt: new Date(r.updated_at).getTime(),
+        messages: (r.messages || []).sort((a, b) => a.id - b.id)
+          .map((m) => ({ id: m.id, body: m.body, fromAdmin: m.from_admin, createdAt: new Date(m.created_at).getTime() })) }));
+    },
+    async startThread(kind, subject, body) {
+      const { data, error } = await sb.from("support_threads").insert({ kind, subject }).select("id").single();
+      if (error) throw friendly(error);
+      check(await sb.from("support_messages").insert({ thread_id: data.id, body }));
+    },
+    async replyThread(id, body) {
+      check(await sb.from("support_messages").insert({ thread_id: id, body }));
+    },
+    async setThreadStatus(id, status) {
+      check(await sb.from("support_threads").update({ status }).eq("id", id));
+    },
   };
 }
 
@@ -241,7 +302,7 @@ async function createLive() {
 // DEMO: no server. Sample data kept in this browser's localStorage.
 // ---------------------------------------------------------------------------
 function createDemo() {
-  const KEY = "abroadboard-demo-v4";
+  const KEY = "abroadboard-demo-v5";
   const listeners = [];
   let S;
 
@@ -254,18 +315,46 @@ function createDemo() {
          contactMethods: ["email"], images: [], ...extra });
     return {
       user: null, admin: false, nextId: 100, reports: [], requests: [],
-      contacts: {},
+      contacts: {}, notifications: [], threads: [],
+      categoryRequests: [
+        { id: 90, name: "Music and jamming", reason: "For people who want to play music together.", status: "approved", requestedBy: "sample-Diego", requesterName: "Diego", createdAt: now - 9 * DAY },
+        { id: 91, name: "Volunteering", reason: "Beach clean-ups and community events.", status: "pending", requestedBy: "sample-Hana", requesterName: "Hana", createdAt: now - DAY },
+      ],
       // Same samples as supabase/seed.sql, so they have Mandarin in i18n.js.
       posts: [
-        P(1, "board", "Meetups", "Rangitoto hike this Sunday, who's in?", "Catching the morning ferry from downtown and walking to the summit. Slow pace with lots of photo stops. Bring water and lunch.", "Mei", "Taiwan", 0.15, { contactMethods: ["social"] }),
-        P(2, "board", "Housing", "Room available in a Mt Eden flat from 1 November", "Furnished double room in a 3-bedroom flat, 10 minutes by bus to the city. $230 a week including power and Wi-Fi. Looking for a tidy, quiet flatmate.", "Arjun", "India", 1.2, { audienceSleeper: "light", audienceNote: "Non-smoker", contactMethods: ["email", "mobile"] }),
-        P(3, "board", "Housing", "Looking for a third flatmate near the city campuses", "Two students looking for one more person to share a 3-bedroom apartment in the CBD from December. About $260 a week each.", "Sofie", "Denmark", 2.5, { audienceGender: "women" }),
-        P(4, "board", "Study buddies", "Statistics study partner wanted", "Taking first-year statistics and want someone to go through tutorial questions with. Weekdays after 4pm at any city library.", "Nazia", "Bangladesh", 3.1),
-        P(5, "board", "Help", "How do I get an IRD number for part-time work?", "Got my first casual job offer. What documents did you need, and how long did it take?", "Zihou", "China", 5.6),
-        P(6, "board", "Meetups", "Casual cricket in the Domain, Saturday 2pm", "All levels welcome. We have a bat and tennis balls. Look for the red umbrella near the duck pond.", "Vishal", "India", 8.3),
-        P(7, "board", "Meetups", "Board games and snacks from home, Friday night", "Catan, Codenames and Uno, plus food from our home countries to share. Around 8 people so far, room for more.", "Sofie", "Denmark", 12.5),
-        P(8, "board", "Study buddies", "IELTS speaking practice partner", "Preparing for the IELTS speaking test. Happy to meet twice a week on campus or online to practise together.", "Minh", "Vietnam", 4),
-        P(9, "board", "Help", "Which mobile plan is best for students?", "Just arrived and need a SIM card. Which provider gives the best value for data and for calling home?", "Lukas", "Germany", 0.6),
+        P(1, "board", "Weekend and day trips", "Rangitoto hike this Sunday, who's in?", "Catching the morning ferry from downtown and walking to the summit. Slow pace with lots of photo stops. Bring water and lunch.", "Mei", "Taiwan", 0.15, { contactMethods: ["social"] }),
+        P(2, "board", "Flatmates and rooms", "Room available in a Mt Eden flat from 1 November", "Furnished double room in a 3-bedroom flat, 10 minutes by bus to the city. $230 a week including power and Wi-Fi. Looking for a tidy, quiet flatmate.", "Arjun", "India", 1.2, { audienceSleeper: "light", audienceNote: "Non-smoker", contactMethods: ["email", "mobile"] }),
+        P(3, "board", "Flatmates and rooms", "Looking for a third flatmate near the city campuses", "Two students looking for one more person to share a 3-bedroom apartment in the CBD from December. About $260 a week each.", "Sofie", "Denmark", 2.5, { audienceGender: "women" }),
+        P(4, "board", "Study partners", "Statistics study partner wanted", "Taking first-year statistics and want someone to go through tutorial questions with. Weekdays after 4pm at any city library.", "Nazia", "Bangladesh", 3.1),
+        P(5, "board", "Questions and advice", "How do I get an IRD number for part-time work?", "Got my first casual job offer. What documents did you need, and how long did it take?", "Zihou", "China", 5.6),
+        P(6, "board", "Sports", "Casual cricket in the Domain, Saturday 2pm", "All levels welcome. We have a bat and tennis balls. Look for the red umbrella near the duck pond.", "Vishal", "India", 8.3, { sport: "Cricket" }),
+        P(7, "board", "Coffee and chat", "Board games and snacks from home, Friday night", "Catan, Codenames and Uno, plus food from our home countries to share. Around 8 people so far, room for more.", "Sofie", "Denmark", 12.5),
+        P(8, "board", "Study partners", "IELTS speaking practice partner", "Preparing for the IELTS speaking test. Happy to meet twice a week on campus or online to practise together.", "Minh", "Vietnam", 4),
+        P(9, "board", "Questions and advice", "Which mobile plan is best for students?", "Just arrived and need a SIM card. Which provider gives the best value for data and for calling home?", "Lukas", "Germany", 0.6),
+        P(40, "board", "Coffee and chat", "Coffee after Monday lectures?", "New to Auckland and keen to meet people outside class. I usually grab a flat white near Shortland Street around 3pm on Mondays. Come say hi.", "Hana", "Japan", 0.4),
+        P(41, "board", "Weekend and day trips", "Day trip to Piha beach on Saturday", "Two of us are driving out to Piha and have three spare seats. Leaving the city at 9am and back before dinner. Share petrol, about $10 each.", "Lukas", "Germany", 1.8),
+        P(42, "board", "Language exchange", "Can teach Hindi, want to practise Spanish", "I'm a native Hindi speaker learning Spanish. Happy to meet once a week for an hour, half in each language. Any level is fine.", "Priya", "India", 0.9),
+        P(43, "board", "Language exchange", "Korean and English conversation partner", "I want to improve my English speaking and can help you with Korean. Cafe on campus or a video call, whatever suits you.", "Jiwoo", "South Korea", 3.4),
+        P(44, "board", "Cultural and religious", "Diwali night, everyone welcome", "Lights, sweets and music at our flat common room. Bring a friend and a small plate of food if you can. No need to RSVP.", "Arjun", "India", 2.2),
+        P(45, "board", "Cultural and religious", "Friday prayers and lunch group", "A few of us walk to the mosque together on Fridays and have lunch afterwards. New students welcome to join us.", "Farhan", "Malaysia", 5.1, { audienceGender: "men" }),
+        P(46, "board", "Sports", "5-a-side this Sunday, need 2 more players", "Casual game at the Domain sports fields, 4pm. Mixed ability, just for fun. Bring water and running shoes.", "Diego", "Chile", 0.7, { sport: "Football (soccer)" }),
+        P(47, "board", "Sports", "Looking for a badminton doubles partner", "I play twice a week at the rec centre and my partner just graduated. Intermediate level, happy to split court fees.", "Mei", "Taiwan", 2.9, { sport: "Badminton", audienceGender: "women" }),
+        P(48, "board", "Sports", "Gym buddy for early mornings", "Training at the campus gym at 6:30am on weekdays. Looking for someone to keep me motivated. Beginners welcome.", "Tomas", "Brazil", 4.6, { sport: "Gym and fitness" }),
+        P(49, "board", "Moving in and out", "Selling a desk and chair before I fly home", "Leaving Auckland at the end of semester. Desk, chair, lamp and a small bookshelf. Pick up from Grafton, cheap for a quick sale.", "Sofie", "Denmark", 1.1),
+        P(50, "board", "Moving in and out", "Need help moving boxes on Saturday", "Moving from Mt Albert to the city. About ten boxes and a mattress. I'll pay for pizza and petrol if you have a car.", "Nazia", "Bangladesh", 6.3),
+        P(51, "board", "Part-time jobs", "Cafe on Queen Street hiring for weekends", "The cafe I work at needs another barista for Saturday and Sunday mornings. Training given. Ask me for the manager's details.", "Minh", "Vietnam", 1.4),
+        P(52, "board", "Part-time jobs", "Campus library is looking for student helpers", "Shelving books and helping at the front desk, around 10 hours a week. Good for students on a visa with work rights.", "Zihou", "China", 3.8),
+        P(53, "board", "Discounts and deals", "Student discount at a local gym", "Show your student ID at the gym on Symonds Street for half-price membership in your first month.", "Tomas", "Brazil", 2.6),
+        P(54, "board", "Discounts and deals", "Half-price movie tickets on Tuesdays", "Most cinemas in the city have cheap Tuesdays and an extra student price. Worth checking before you book.", "Hana", "Japan", 7.5),
+        P(55, "board", "Textbooks and notes", "Selling a circuit analysis textbook", "Used for one semester, no writing inside. Comes with my printed lecture notes for free.", "Arjun", "India", 3.2),
+        P(56, "board", "Textbooks and notes", "Swapping first-year accounting notes", "I have neat notes for first-year accounting and want notes for business statistics in return.", "Priya", "India", 5.9),
+        P(57, "board", "Tutoring", "Offering maths tutoring", "Third-year maths student. I can help with calculus and algebra for first-year courses. $25 an hour, first session free.", "Lukas", "Germany", 0.8),
+        P(58, "board", "Tutoring", "Need help with academic writing", "Looking for someone to check the structure of my essays before I submit them. Happy to pay or swap for help with coding.", "Jiwoo", "South Korea", 4.1),
+        P(59, "board", "Rides and transport", "Sharing a ride to the airport", "Flying out on the 20th, leaving the city around 6am. Anyone want to split an Uber? Should be about $25 each.", "Megha", "India", 1.6),
+        P(60, "board", "Rides and transport", "Best way to get to the North Shore campus?", "Moving to Albany next semester. Is the Northern Express bus reliable, or is it worth carpooling?", "Diego", "Chile", 6.8),
+        P(61, "board", "Lost and found", "Found a student card at the library", "Found near the level 2 printers on Tuesday afternoon. Message me with the name on the card and I'll return it.", "Sofie", "Denmark", 0.3),
+        P(62, "board", "Lost and found", "Lost a black umbrella on the Link bus", "Plain black umbrella with a wooden handle. Lost on the Inner Link on Wednesday. It means a lot to me.", "Farhan", "Malaysia", 2.4),
+        P(63, "board", "Other", "Anyone want to start a photography walk group?", "I'd like to explore Auckland's street art and parks with a camera. Phone cameras totally fine.", "Megha", "India", 3.5),
         P(30, "market", "Kitchen", "Rice cooker and kettle bundle", "Both work perfectly. Leaving New Zealand in December.", "Lukas", "Germany", 2.4, { price: "$20", condition: "Good", contactMethods: ["mobile"] }),
         P(31, "market", "Bikes & transport", "City bike with lock and helmet", "Gears work well, a few small scratches. Fits riders about 160 to 180 cm tall.", "Megha", "India", 4.2, { price: "$120", condition: "Fair", contactMethods: ["email", "social"] }),
         P(32, "market", "Books & study", "First-year economics textbook", "Some highlighting in the first chapters, otherwise clean. Pick up on campus.", "Nazia", "Bangladesh", 6, { price: "$25", condition: "Good" }),
@@ -292,12 +381,16 @@ function createDemo() {
   const me = () => { if (!S.user) throw new Error("Sign in with your student email first."); return S.user; };
   const verified = () => { const u = me(); if (!u.aucklandConfirmed) throw new Error(NOT_CONFIRMED); return u; };
   const wait = () => new Promise((r) => setTimeout(r, 150)); // feels like a network call
+  const notifyUser = (userId, n) => {
+    if (n.postId && S.notifications.some((x) => x.userId === userId && x.postId === n.postId)) return;
+    S.notifications.push({ id: S.nextId++, userId, read: false, createdAt: Date.now(), postId: null, threadId: null, detail: "", ...n });
+  };
   const toDataUrl = (blob) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
   load(); expire(); save();
 
   return {
     mode: "demo",
-    async currentUser() { return S.user ? { ...S.user, isAdmin: !!S.admin } : null; },
+    async currentUser() { return S.user ? { interests: [], notifyInterests: true, ...S.user, isAdmin: !!S.admin } : null; },
     onAuthChange(cb) { listeners.push(cb); },
     async sendCode(email, { campus } = {}) {
       await wait();
@@ -310,7 +403,7 @@ function createDemo() {
       const local = email.split("@")[0];
       const known = (S.accounts || {})[email.toLowerCase()];
       S.user = known || { id: "demo-" + email.toLowerCase(), email: email.toLowerCase(), name: local, country: "",
-                 campus: S.pendingCampus || "", aucklandConfirmed: !!S.pendingCampus };
+                 campus: S.pendingCampus || "", aucklandConfirmed: !!S.pendingCampus, interests: [], notifyInterests: true };
       save(); notify();
     },
     async signIn(email, password) {
@@ -323,7 +416,21 @@ function createDemo() {
       if (S.user) (S.accounts ||= {})[S.user.email] = S.user; // remembered for "Sign in"
       S.user = null; save(); notify();
     },
-    async updateProfile(_id, { name, country }) { const u = me(); if (name) u.name = name; if (country !== undefined) u.country = country; save(); },
+    async updateProfile(_id, { name, country, interests, notifyInterests }) {
+      const u = me();
+      if (name) u.name = name;
+      if (country !== undefined) u.country = country;
+      if (notifyInterests !== undefined) u.notifyInterests = !!notifyInterests;
+      if (interests) {
+        // Demo only: sample students "post" in your new interests so the bell has something to show.
+        const added = interests.filter((c) => !(u.interests || []).includes(c));
+        u.interests = interests;
+        if (u.notifyInterests !== false) S.posts
+          .filter((p) => p.section === "board" && added.includes(p.category) && p.authorId !== u.id && Date.now() - p.createdAt < 3 * DAY)
+          .forEach((p) => notifyUser(u.id, { kind: "post", postId: p.id, title: p.title, detail: p.category, createdAt: p.createdAt }));
+      }
+      save();
+    },
     async confirmAuckland(campus) { const u = me(); u.campus = campus; u.aucklandConfirmed = true; save(); },
 
     async listPosts(section) { await wait(); expire(); return S.posts.filter((p) => p.section === section).sort((a, b) => b.createdAt - a.createdAt); },
@@ -333,7 +440,7 @@ function createDemo() {
       for (const b of photos.slice(0, 2)) images.push(await toDataUrl(b));
       const row = postRow(post);
       const id = S.nextId++;
-      S.posts.push({ id, section: row.section, category: row.category, title: row.title, body: row.body, price: row.price,
+      S.posts.push({ id, section: row.section, category: row.category, sport: row.sport || "", title: row.title, body: row.body, price: row.price,
         condition: row.condition, audienceGender: row.audience_gender, audienceSleeper: row.audience_sleeper,
         audienceNote: row.audience_note || "", contactMethods: row.contact_methods, images,
         createdAt: Date.now(), authorId: u.id, authorName: u.name, authorCountry: u.country });
@@ -390,6 +497,48 @@ function createDemo() {
       if (e && e.hostId !== u.id && !S.admin) throw new Error("You can only delete events you posted.");
       S.events = S.events.filter((x) => x.id !== id); save();
     },
+
+    async listCategoryRequests() {
+      const u = S.user;
+      return S.categoryRequests.filter((r) => r.status === "approved" || S.admin || (u && r.requestedBy === u.id));
+    },
+    async requestCategory(name, reason) {
+      const u = me();
+      S.categoryRequests.push({ id: S.nextId++, name, reason: reason || "", status: "pending", requestedBy: u.id, requesterName: u.name, createdAt: Date.now() });
+      save();
+    },
+    async answerCategoryRequest(id, status) {
+      if (!S.admin) throw new Error("Only admins can do that.");
+      const r = S.categoryRequests.find((x) => x.id === id);
+      if (r && r.status !== status) { r.status = status; notifyUser(r.requestedBy, { kind: "category", title: r.name, detail: status }); }
+      save();
+    },
+
+    async listNotifications() { return S.user ? S.notifications.filter((n) => n.userId === S.user.id).sort((a, b) => b.createdAt - a.createdAt) : []; },
+    async markNotificationsRead() { S.notifications.forEach((n) => { if (S.user && n.userId === S.user.id) n.read = true; }); save(); },
+    async clearNotifications() { S.notifications = S.notifications.filter((n) => !S.user || n.userId !== S.user.id); save(); },
+
+    async listThreads() {
+      if (!S.user) return [];
+      return S.threads.filter((t) => S.admin || t.userId === S.user.id).sort((a, b) => b.updatedAt - a.updatedAt);
+    },
+    async startThread(kind, subject, body) {
+      const u = me(), now = Date.now();
+      S.threads.push({ id: S.nextId++, kind, subject, status: "open", userId: u.id, userName: u.name, userCountry: u.country,
+        updatedAt: now, messages: [{ id: S.nextId++, body, fromAdmin: false, createdAt: now }] });
+      save();
+    },
+    async replyThread(id, body) {
+      const u = me(), t = S.threads.find((x) => x.id === id);
+      if (!t || (t.userId !== u.id && !S.admin)) throw new Error("Only signed-in students with an accepted student email can do that.");
+      const fromAdmin = !!S.admin;
+      t.messages.push({ id: S.nextId++, body, fromAdmin, createdAt: Date.now() });
+      t.updatedAt = Date.now();
+      if (fromAdmin) notifyUser(t.userId, { kind: "reply", threadId: t.id, title: t.subject });
+      else t.status = "open";
+      save();
+    },
+    async setThreadStatus(id, status) { const t = S.threads.find((x) => x.id === id); if (t && S.admin) t.status = status; save(); },
 
     // Demo-only helpers
     setAdmin(on) { S.admin = !!on; save(); },

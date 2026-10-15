@@ -13,11 +13,13 @@ The site works straight away in **demo mode**, which uses sample data saved only
 
 | Path | What it is |
 |---|---|
-| `index.html` | Every page: Board, Buy and Sell, Events, Campus tips, Food & budget, Join |
+| `index.html` | Every page: Board, Buy and Sell, Events, Campus tips, Food & budget, FAQ, Contact, Admin, Join |
 | `css/styles.css` | Brand colours, fonts and layout (works on phones) |
 | `js/config.js` | **The only file you need to edit to go live**: Supabase URL and key |
 | `js/data.js` | Talks to Supabase, or to the demo data when there are no keys |
 | `js/app.js` | What the pages show and do |
+| `js/search.js` | Typo-tolerant search and the suggestions under the search box |
+| `js/i18n.js`, `js/i18n-mi.js`, `js/i18n-fr.js` | Mandarin, te reo Māori and French text, keyed by the English |
 | `supabase/schema.sql` | Database tables and security rules. Run it once in Supabase. |
 | `supabase/seed.sql` | Optional sample events and meetup posts |
 | `supabase/email-templates/sign-in.html` | The sign-in email with the one-time code (`{{ .Token }}`) |
@@ -33,7 +35,16 @@ The site works straight away in **demo mode**, which uses sample data saved only
 | 4 Tips on what to write | "What to include" box in the new-post form |
 | 5 Ads | `AD_SLOT` in `app.js`, sponsor panel in `index.html` |
 | 6 Student email only | `INSTITUTIONS` in `config.js` and `isStudentEmail()` in the browser; `allowed_email_domains()`, `is_student()` and `hook_uoa_only` in the database |
-| English / 中文 switch | `js/i18n.js` (Mandarin text, keyed by the English); `data-i18n` marks static text in `index.html`. Student posts stay in the language they were written in. |
+| Language menu (FC-31) | English, 中文, te reo Māori and Français. `LANGS` in `js/i18n.js`; Mandarin in `i18n.js`, Māori in `i18n-mi.js`, French in `i18n-fr.js`, all keyed by the English. `data-i18n` marks static text in `index.html`. Student posts stay in the language they were written in. Any new English text needs an entry in all three files. |
+| Light / dark theme (FC-32) | Follows the device setting; the sun/moon button in the header switches and remembers the choice (`renderTheme()` in `app.js`, colours under `[data-theme]` in `styles.css`). |
+| Interests (FC-34, FC-41) | Picked on the Join page and changed any time under **Your interests** on My account. Saved in `profiles.interests` (board category names). |
+| Notifications (FC-35) | Bell in the header and a list on My account. The database adds one when someone posts in a category you picked (`notify_interested()`), when an admin replies to your message, and when your category request is answered. The page checks every minute. |
+| Gender filter (FC-36) | "Post is for" menu above the board, using the post's `audience_gender`. |
+| Messages to the admins (FC-37) | `#contact` page for questions, complaints and reports; admins reply on the `#admin` page (Messages tab). Tables `support_threads` and `support_messages`. |
+| Admin account | Admins have `profiles.is_admin = true` and sign in on the Sign in tab. The admin account was created directly in Supabase; its password is not kept in this repo. To make someone else an admin, run `update profiles set is_admin = true where id = '<their user id>';` in the SQL editor. |
+| Only your interests (FC-40) | Button above the board. |
+| Typo-tolerant search (FC-43) | `js/search.js`: matches words with one or two typing mistakes, suggests a corrected spelling and matching titles, and shows the closest posts when nothing matches exactly. Used on the board and Buy and Sell. |
+| More categories (FC-44) | `CATEGORY_GROUPS` and `SPORTS` in `config.js`, from the team's category ideas document. Sports posts carry a sport tag. Students request new categories (Request a category); admins approve them on the Admin page (`category_requests`), and approved ones appear for everyone. |
 | FAQ + contact | `#faq` page in `index.html` (answers marked `data-i18n`); `CONTACT_EMAIL` in `config.js` (info@abroadboard.com), also in the footer and privacy notice |
 | Privacy notice + consent | `privacyNotice()` in `app.js`, shown on the Join page and at `#privacy`; consent saved in `profiles.privacy_consent_at` |
 | Auckland check | Campus-area picker and a required "I study in Auckland" box on the Join page (`aucklandFields()` in `app.js`). Saved as `profiles.campus` and `auckland_confirmed_at`; posting, selling and requesting contact details need it (`is_verified()` in `schema.sql`). |
@@ -42,14 +53,14 @@ The site works straight away in **demo mode**, which uses sample data saved only
 | Who a post is for | Gender, heavy/light sleeper and a free note (`audience_*` columns), shown as "For:" chips |
 | Private contact details | Authors pick email, mobile and/or social media. Details live in `post_contacts` and stay hidden; others send a request (`contact_requests`) and the author taps Share or Decline. |
 | Photos | Up to 2 .jpg/.jpeg photos per post, 5 MB each, in the `post-images` storage bucket. Resized in the browser before upload; checked again by the bucket. |
-| 7 Categories + custom | `CATEGORIES` in `app.js` |
+| 7 Categories | `CATEGORY_GROUPS` in `config.js`, plus approved student requests |
 | 8 Report button | `reports` table; admins see "Reported ×n" |
 | 10 Auto-delete after 21 days | Read rule hides old posts, and a cron job deletes them hourly |
 | 15 Newest first | `order("created_at", { ascending: false })` |
 | 16 Events, $5 | Events page and checkout box. Payment is simulated for now. |
 | 18 Food tips | `posts` table with `section = 'food'` |
-| 22 Filter by category | Category chips above the feed |
-| 23 Campus tips + map | Campus page. **The map image still needs adding.** |
+| 22 Filter by category | Category and sport menus above the feed |
+| 23 Campus tips + map (FC-38) | Campus page, with a live Google Map. The places to choose from are `MAP_PLACES` in `config.js`. |
 
 ---
 

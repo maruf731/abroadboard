@@ -14,6 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&display=swap">
   <link rel="stylesheet" href="css/styles.css">
+  <script>try { var th = localStorage.getItem("abroadboard-theme"); if (th === "light" || th === "dark") document.documentElement.dataset.theme = th; } catch (e) {}</script>
   <script type="module" src="js/app.js"></script>
 </head>
 <body>
@@ -30,7 +31,19 @@
         <span class="word">abroadboard</span>
       </a>
       <span class="spacer"></span>
-      <button class="lang-btn" id="langBtn" type="button" lang="zh-Hans">中文</button>
+      <div class="tools">
+        <label class="lang-pick"><span class="sr-only" data-i18n>Language</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+          <select id="langSel"></select></label>
+        <button class="icon-btn" id="themeBtn" type="button"></button>
+        <div class="bell-wrap" id="bellWrap" hidden>
+          <button class="icon-btn" id="bellBtn" type="button" aria-expanded="false" aria-controls="bellPanel">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            <span class="badge" id="bellCount" hidden></span>
+          </button>
+          <div class="bell-panel" id="bellPanel" hidden></div>
+        </div>
+      </div>
       <div class="who" id="who"></div>
     </div>
     <nav class="tabs" aria-label="Sections" data-i18n-attr="aria-label">
@@ -40,6 +53,8 @@
       <a href="#campus" data-view="campus" data-i18n>Campus tips</a>
       <a href="#food" data-view="food" data-i18n>Food &amp; budget</a>
       <a href="#faq" data-view="faq" data-i18n>FAQ</a>
+      <a href="#contact" data-view="contact" data-i18n>Contact</a>
+      <a href="#admin" data-view="admin" id="adminTab" hidden data-i18n>Admin</a>
       <a href="#join" data-view="join" id="joinTab">Join</a>
     </nav>
   </div>
@@ -61,9 +76,16 @@
         <div class="filters">
           <div class="search">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input id="q" type="search" placeholder="Search posts" aria-label="Search posts" data-i18n-attr="placeholder,aria-label">
+            <input id="q" type="search" placeholder="Search posts" aria-label="Search posts" data-i18n-attr="placeholder,aria-label" autocomplete="off" aria-controls="qSuggest">
+            <div class="suggest" id="qSuggest" hidden></div>
           </div>
-          <div class="chips" id="chips" role="group" aria-label="Filter by category" data-i18n-attr="aria-label"></div>
+          <div class="filter-row" role="group" aria-label="Filter posts" data-i18n-attr="aria-label">
+            <label class="pick"><span data-i18n>Category</span><select id="catSel"></select></label>
+            <label class="pick" id="sportPick" hidden><span data-i18n>Sport</span><select id="sportSel"></select></label>
+            <label class="pick"><span data-i18n>Post is for</span><select id="genderSel"></select></label>
+            <button class="chip mine-btn" id="mineBtn" type="button" aria-pressed="false" data-i18n>Only your interests</button>
+          </div>
+          <p class="filter-note" id="filterNote"></p>
         </div>
         <div class="feed" id="feedList"><div class="loading" data-i18n>Loading posts…</div></div>
       </div>
@@ -82,6 +104,11 @@
             <li data-i18n>See something off? Tap <b>Report</b> and an admin will check it.</li>
           </ul>
         </div>
+        <div class="panel">
+          <h4 data-i18n>Can't find your category?</h4>
+          <p data-i18n>Suggest a new one. An admin checks every request before it's added.</p>
+          <button class="btn btn-ghost btn-sm" type="button" data-new="category" data-i18n>Request a category</button>
+        </div>
         <div class="panel" id="stats"></div>
       </aside>
     </div>
@@ -99,7 +126,8 @@
     <div class="filters">
       <div class="search">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input id="mq" type="search" placeholder="Search items" aria-label="Search items" data-i18n-attr="placeholder,aria-label">
+        <input id="mq" type="search" placeholder="Search items" aria-label="Search items" data-i18n-attr="placeholder,aria-label" autocomplete="off" aria-controls="mqSuggest">
+        <div class="suggest" id="mqSuggest" hidden></div>
       </div>
       <div class="chips" id="marketChips" role="group" aria-label="Filter by category" data-i18n-attr="aria-label"></div>
     </div>
@@ -128,12 +156,11 @@
       </div>
     </div>
     <div class="campus">
-      <!-- To add the map: save it as assets/campus-map.png and replace this div with
-           <img src="assets/campus-map.png" alt="University of Auckland City Campus map" style="border-radius:14px"> -->
-      <div class="map" role="img" aria-label="Campus map placeholder" data-i18n-attr="aria-label">
-        <span class="pin" aria-hidden="true"></span>
-        <strong data-i18n>Campus map goes here</strong>
-        <p data-i18n>Add the official University of Auckland City Campus map with key buildings marked.</p>
+      <!-- Live Google Map (FC-38). Places are listed in MAP_PLACES in js/config.js. -->
+      <div class="map-box">
+        <div class="map-places" id="mapPlaces" role="group" aria-label="Choose a place on the map" data-i18n-attr="aria-label"></div>
+        <div class="map-frame"><iframe id="mapFrame" title="Map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></div>
+        <a class="link-btn" id="mapOpen" target="_blank" rel="noopener" data-i18n>Open in Google Maps</a>
       </div>
       <ol class="tips">
         <li data-i18n><h3>Read room codes as building-room</h3><p>A room like <code class="room">260-115</code> means building 260, room 115. Find the building number first, then the room.</p></li>
@@ -179,6 +206,7 @@
         <h2 class="faq-group" data-i18n>Posting</h2>
         <details class="faq-item"><summary data-i18n>How do posts work?</summary><p data-i18n>Choose a category, add a title and your details, say who the post is for, and pick how people can contact you. Posts expire after 21 days to keep the board fresh and relevant.</p></details>
         <details class="faq-item"><summary data-i18n>What should I include in my post?</summary><p data-i18n>A clear title, what you're looking for, when and where it happens, and how people should contact you. Never share your home address or passport details.</p></details>
+        <details class="faq-item"><summary data-i18n>What if there's no category for my post?</summary><p data-i18n>Choose <b>Other</b>, and tap <b>Request a category</b> on the board to suggest a new one. An admin reviews every request, and approved categories appear for everyone.</p></details>
         <details class="faq-item"><summary data-i18n>What does "For:" on a post mean?</summary><p data-i18n>It's optional and shows who the post is meant for, such as women only, light or heavy sleepers, or a note like "non-smoker" or "first-year students". It's handy when looking for a flatmate or a study group.</p></details>
         <details class="faq-item"><summary data-i18n>What photos can I add?</summary><p data-i18n>Up to two photos per post, in .jpg or .jpeg format and 5 MB or smaller each, that help explain your meetup, item or tip. Don't upload personal documents, sensitive information, or people's faces without their consent.</p></details>
         <details class="faq-item"><summary data-i18n>How long do posts stay up?</summary><p data-i18n>Posts stay up for 21 days and are then removed automatically. Events disappear about a week after they happen. You can repost any time if you still need help, and delete your own post whenever you like.</p></details>
@@ -187,21 +215,58 @@
         <h2 class="faq-group" data-i18n>Contact and safety</h2>
         <details class="faq-item"><summary data-i18n>How do I contact another student?</summary><p data-i18n>Each post shows the contact methods the author offers: email, mobile or social media. Sign in and tap <b>Request contact details</b>. When the author shares them, they appear on the post for you.</p></details>
         <details class="faq-item"><summary data-i18n>Who can see my contact details?</summary><p data-i18n>Only the students you approve. Your email, mobile number or social media handle is never shown publicly, and never to people who aren't signed in.</p></details>
-        <details class="faq-item"><summary data-i18n>What if I see a problem with a post?</summary><p data-i18n>Tap <b>Report</b> on the post. The admin team will review it and take action if needed. For anything urgent, email <a href="mailto:info@abroadboard.com">info@abroadboard.com</a>.</p></details>
+        <details class="faq-item"><summary data-i18n>What if I see a problem with a post?</summary><p data-i18n>Tap <b>Report</b> on the post. The admin team will review it and take action if needed. To tell us more, or to report a person, use the <a href="#contact">Contact</a> page.</p></details>
         <h2 class="faq-group" data-i18n>Clubs and businesses</h2>
         <details class="faq-item"><summary data-i18n>Can student clubs post events?</summary><p data-i18n>Yes. Clubs and students can list events such as workshops, cultural nights and sports tournaments on the <a href="#events">Events</a> page for $5 NZD per listing.</p></details>
         <details class="faq-item"><summary data-i18n>Can businesses advertise on abroadboard?</summary><p data-i18n>Yes. Local businesses can book sponsor slots to reach Auckland's international student community. Email <a href="mailto:info@abroadboard.com">info@abroadboard.com</a> to ask about it.</p></details>
         <h2 class="faq-group" data-i18n>Your account</h2>
-        <details class="faq-item"><summary data-i18n>Can I use abroadboard in Chinese?</summary><p data-i18n>Yes. Tap <b>中文</b> at the top of any page to switch to Simplified Chinese, and <b>English</b> to switch back.</p></details>
+        <details class="faq-item"><summary data-i18n>Can I use abroadboard in another language?</summary><p data-i18n>Yes. Use the language menu at the top of any page to switch between English, Chinese (中文), te reo Māori and French (Français).</p></details>
+        <details class="faq-item"><summary data-i18n>Can I use dark mode?</summary><p data-i18n>Yes. abroadboard follows your device's light or dark setting. Tap the sun or moon button at the top of the page to switch.</p></details>
+        <details class="faq-item"><summary data-i18n>How do interests and notifications work?</summary><p data-i18n>Pick the categories you care about when you sign up, or any time on <a href="#join">My account</a>. When someone posts in one of them, the bell at the top shows a notification with a link to the post. Tap <b>Only your interests</b> on the board to see just those posts.</p></details>
         <details class="faq-item"><summary data-i18n>How do I change or delete my account?</summary><p data-i18n>Change your display name and home country on <a href="#join">My account</a>. To delete your account or your data, email <a href="mailto:info@abroadboard.com">info@abroadboard.com</a>.</p></details>
-        <details class="faq-item"><summary data-i18n>How do I contact the abroadboard team?</summary><p data-i18n>For questions, feedback, account problems or advertising, email <a href="mailto:info@abroadboard.com">info@abroadboard.com</a>.</p></details>
+        <details class="faq-item"><summary data-i18n>How do I contact the abroadboard team?</summary><p data-i18n>Sign in and use the <a href="#contact">Contact</a> page to send a question, complaint or report. An admin replies there and you get a notification. You can also email <a href="mailto:info@abroadboard.com">info@abroadboard.com</a>.</p></details>
       </div>
       <aside class="panel contact-panel">
         <h4 data-i18n>Contact us</h4>
-        <p data-i18n>Questions, feedback, a problem with your account, or want to advertise? Email the abroadboard team.</p>
-        <a class="btn btn-primary" href="mailto:info@abroadboard.com">info@abroadboard.com</a>
+        <p data-i18n>Questions, feedback, a problem with your account, or want to advertise? Send the abroadboard team a message.</p>
+        <a class="btn btn-primary" href="#contact" data-i18n>Message the team</a>
+        <a class="link-btn" href="mailto:info@abroadboard.com">info@abroadboard.com</a>
       </aside>
     </div>
+  </section>
+
+  <!-- CONTACT THE ADMINS (FC-37) -->
+  <section class="view" id="view-contact" hidden>
+    <div class="intro">
+      <div>
+        <h1 data-i18n>Contact the abroadboard team</h1>
+        <p data-i18n>Send a question, a complaint or a report about a post or a person. An admin will reply here, and you'll get a notification when they do.</p>
+      </div>
+    </div>
+    <div class="contact-layout">
+      <div id="contactBox"></div>
+      <aside class="panel">
+        <h4 data-i18n>Prefer email?</h4>
+        <p data-i18n>You can also write to us at <a href="mailto:info@abroadboard.com">info@abroadboard.com</a>.</p>
+        <h4 style="margin-top:14px" data-i18n>Urgent or unsafe?</h4>
+        <p data-i18n>If someone is in danger, call 111 first.</p>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ADMIN: messages and category requests (FC-37, FC-44) -->
+  <section class="view" id="view-admin" hidden>
+    <div class="intro">
+      <div>
+        <h1 data-i18n>Admin</h1>
+        <p data-i18n>Messages from students and requests for new categories.</p>
+      </div>
+    </div>
+    <div class="admin-tabs" role="tablist">
+      <button type="button" role="tab" data-admin-tab="messages" aria-selected="true" data-i18n>Messages</button>
+      <button type="button" role="tab" data-admin-tab="categories" aria-selected="false" data-i18n>Category requests</button>
+    </div>
+    <div id="adminBox"></div>
   </section>
 
   <!-- JOIN (Story 6) -->
@@ -223,6 +288,7 @@
     <span data-i18n>abroadboard · ENGGEN 731 Group 7 · University of Auckland student project</span>
     <span style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
       <a class="link-btn" href="#faq" data-i18n>FAQ</a>
+      <a class="link-btn" href="#contact" data-i18n>Contact</a>
       <a class="link-btn" href="#privacy" data-i18n>Privacy</a>
       <a class="link-btn" href="mailto:info@abroadboard.com">info@abroadboard.com</a>
       <span id="adminBadge"></span>

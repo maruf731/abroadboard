@@ -1,36 +1,50 @@
-// English / 简体中文 switch. English text is the key: t("Sign in") returns the
-// Chinese when Mandarin is on, and the English otherwise. Anything missing from
-// ZH simply stays in English. Posts and events that students write are not translated.
+// Language switch: English, 简体中文, Te reo Māori and Français (FC-31).
+// English text is the key: t("Sign in") returns the translation for the chosen
+// language, and the English when a translation is missing. Posts and events that
+// students write are not translated; the sample posts are.
 //
 // Static text in index.html is marked with data-i18n (inner HTML is the key)
 // and data-i18n-attr="placeholder,aria-label" (the attribute's English value is the key).
+// Mandarin lives below; Māori and French live in i18n-mi.js and i18n-fr.js.
 
+import MI from "./i18n-mi.js";
+import FR from "./i18n-fr.js";
+
+// Shown in the language menu, each in its own language.
+export const LANGS = [
+  { code: "en", label: "English", html: "en-NZ", locale: "en-NZ" },
+  { code: "zh", label: "中文", html: "zh-Hans", locale: "zh-CN" },
+  { code: "mi", label: "Te reo Māori", html: "mi", locale: "en-NZ" },
+  { code: "fr", label: "Français", html: "fr", locale: "fr-FR" },
+];
 const KEY = "abroadboard-lang";
 let lang = "en";
-try { if (localStorage.getItem(KEY) === "zh") lang = "zh"; } catch { /* storage blocked */ }
+try { const saved = localStorage.getItem(KEY); if (LANGS.some((l) => l.code === saved)) lang = saved; } catch { /* storage blocked */ }
 
+const info = () => LANGS.find((l) => l.code === lang) || LANGS[0];
 export const getLang = () => lang;
-export const locale = () => (lang === "zh" ? "zh-CN" : "en-NZ");
+export const locale = () => info().locale;
 
 const norm = (s) => String(s).replace(/\s+/g, " ").trim();
+const dict = () => ({ zh: ZH, mi: MI, fr: FR }[lang]);
+const lookup = (en) => { const d = dict(); return d ? (d[norm(en)] ?? en) : en; };
 
 export function t(en, vars = {}) {
-  const s = lang === "zh" ? (ZH[norm(en)] ?? en) : en;
-  return s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m));
+  return lookup(en).replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m));
 }
 
 export function setLang(next) {
-  lang = next === "zh" ? "zh" : "en";
+  lang = LANGS.some((l) => l.code === next) ? next : "en";
   try { localStorage.setItem(KEY, lang); } catch { /* storage blocked */ }
   applyStatic();
 }
 
 // Translate every marked element in the page. Safe to call repeatedly.
 export function applyStatic(root = document) {
-  document.documentElement.lang = lang === "zh" ? "zh-Hans" : "en-NZ";
+  document.documentElement.lang = info().html;
   root.querySelectorAll("[data-i18n]").forEach((el) => {
     if (el.dataset.en === undefined) el.dataset.en = el.innerHTML;
-    el.innerHTML = lang === "zh" ? (ZH[norm(el.dataset.en)] ?? el.dataset.en) : el.dataset.en;
+    el.innerHTML = lookup(el.dataset.en);
   });
   root.querySelectorAll("[data-i18n-attr]").forEach((el) => {
     el.dataset.i18nAttr.split(",").forEach((attr) => {
@@ -532,4 +546,228 @@ const ZH = {
   "You can only delete your own posts.": "你只能删除自己的帖子。",
   "You can only delete events you posted.": "你只能删除自己发布的活动。",
   "Privacy notice page": "隐私声明页面",
+
+  // ---- October 2026: categories, interests, notifications, messages, map, theme, languages
+  "Did you mean <b>{q}</b>?": "你是不是要找 <b>{q}</b>？",
+  "You haven't picked any interests yet. <a href=\"#join\">Choose them on My account</a>.": "你还没有选择兴趣。<a href=\"#join\">去“我的账户”选择</a>。",
+  "No exact matches for “{q}”. Showing the closest posts.": "没有与“{q}”完全匹配的结果，下面是最相近的帖子。",
+  "Showing posts in your interests: {list}": "显示你感兴趣的帖子：{list}",
+  "email {email}": "发邮件到 {email}",
+  "contact the abroadboard admins": "联系 abroadboard 管理员",
+  "What we collect": "我们收集哪些信息",
+  "Your student email address, used only to sign you in and to check that you study at an accepted Auckland institution.": "你的学生邮箱，仅用于登录，以及确认你在奥克兰认可的院校就读。",
+  "The area of Auckland you study in, and your confirmation that you study in Auckland.": "你在奥克兰就读的区域，以及你确认自己在奥克兰读书。",
+  "The display name you choose and, if you add it, your home country. Both appear on your posts.": "你设置的显示名称，以及你填写的国家（如有）。两者都会显示在你的帖子上。",
+  "The interests you pick, used to tailor the board and send you notifications.": "你选择的兴趣，用于为你定制留言板内容并发送通知。",
+  "What you post: board posts, items for sale, photos, food tips, events and reports.": "你发布的内容：留言板帖子、出售物品、照片、美食推荐、活动和举报。",
+  "The contact details you add to a post (email, mobile or social media), and who asked to see them.": "你在帖子里填写的联系方式（邮箱、手机或社交媒体），以及谁申请查看了这些信息。",
+  "Messages you send the abroadboard team, and category requests.": "你发给 abroadboard 团队的消息，以及新分类申请。",
+  "Who can see it": "谁能看到",
+  "Posts, photos, events, your display name and home country are public on this site.": "帖子、照片、活动、你的显示名称和国家在本网站上公开显示。",
+  "Contact details on a post are hidden. Only students you approve, and the site admins, can see them.": "帖子里的联系方式是隐藏的，只有你同意的同学和网站管理员可以看到。",
+  "Your sign-in email address and your interests are never shown publicly.": "你的登录邮箱和兴趣永远不会公开显示。",
+  "Reports and messages to the team are seen only by you and the site admins.": "举报和发给团队的消息只有你和网站管理员能看到。",
+  "Where it's kept and for how long": "数据存放在哪里、保存多久",
+  "Data and photos are stored with Supabase in its Seoul, South Korea region. The site is hosted by Vercel.": "数据和照片存储在 Supabase 的韩国首尔区域。网站由 Vercel 托管。",
+  "Posts and their photos are deleted automatically after {days} days, and events about a week after they happen.": "帖子及其照片会在 {days} 天后自动删除，活动会在结束约一周后删除。",
+  "Your account stays until you ask us to delete it.": "你的账户会一直保留，直到你要求我们删除。",
+  "Your rights": "你的权利",
+  "Under the New Zealand Privacy Act 2020 you can ask to see, correct or delete your information at any time. To do that, {contact}. We don't sell your data or use it for advertising profiles.": "根据新西兰《2020年隐私法》，你可以随时要求查看、更正或删除你的信息。如需办理，请{contact}。我们不会出售你的数据，也不会用它来建立广告画像。",
+  "Notice version {v}": "声明版本 {v}",
+  "(If this translation differs from the English, the English version applies.)": "（如本译文与英文版本有出入，以英文版本为准。）",
+  "Your interests": "你的兴趣",
+  "Choose the categories you care about. The board's <b>Only your interests</b> button shows just these, and the bell tells you when someone posts in one.": "选择你关心的分类。留言板上的 <b>只看我的兴趣</b> 按钮只显示这些分类，有人在其中发帖时，铃铛会通知你。",
+  "Notify me about new posts in my interests": "我的兴趣分类有新帖时通知我",
+  "Save interests": "保存兴趣",
+  "Notifications": "通知",
+  "What are you interested in?": "你对什么感兴趣？",
+  "Pick as many as you like. We'll notify you about new posts in these categories, and you can change them any time.": "想选几个都可以。这些分类有新帖时我们会通知你，你也可以随时修改。",
+  "No category that fits? Pick Other, or": "没有合适的分类？选择“其他”，或者",
+  "request a new category": "申请新分类",
+  "Request a category": "申请分类",
+  "Tell us what's missing. An admin will check your request, and you'll get a notification when it's approved or declined.": "告诉我们还缺什么。管理员会审核你的申请，通过或拒绝时你都会收到通知。",
+  "e.g. Music and jamming": "例如：音乐和即兴合奏",
+  "Send request": "发送申请",
+  "New post in <b>{cat}</b>: {title}": "<b>{cat}</b> 有新帖：{title}",
+  "An admin replied to your message: {title}": "管理员回复了你的消息：{title}",
+  "Your category <b>{name}</b> was approved": "你申请的分类 <b>{name}</b> 已通过",
+  "Your category <b>{name}</b> was declined": "你申请的分类 <b>{name}</b> 未通过",
+  "Mark all as read": "全部标为已读",
+  "Clear all": "全部清除",
+  "No notifications yet. Pick some interests and we'll tell you when someone posts in them.": "还没有通知。选几个兴趣吧，有人在这些分类发帖时我们会告诉你。",
+  "Notifications, {n} new": "通知，{n} 条新通知",
+  "Closed": "已关闭",
+  "Admin replied": "管理员已回复",
+  "abroadboard team": "abroadboard 团队",
+  "You": "你",
+  "Write a reply": "写回复",
+  "Sign in to message the team": "登录后给团队发消息",
+  "Messages are linked to your profile so we can reply to you here.": "消息会关联到你的个人资料，方便我们在这里回复你。",
+  "New message": "新消息",
+  "e.g. A post asked me for money": "例如：有个帖子向我要钱",
+  "Tell us what happened. If it's about a post, include its title.": "告诉我们发生了什么。如果和某个帖子有关，请写上帖子标题。",
+  "Send message": "发送消息",
+  "Your messages": "你的消息",
+  "You haven't sent any messages yet.": "你还没有发过消息。",
+  "Add a subject and a message.": "请填写主题和消息内容。",
+  "Only admins can see this page.": "只有管理员可以查看此页面。",
+  "No messages from students yet.": "还没有学生发来的消息。",
+  "Approve": "通过",
+  "Waiting for review": "等待审核",
+  "No category requests waiting.": "没有待处理的分类申请。",
+  "Answered": "已回复",
+  "Map of {place}": "{place}地图",
+  "Language": "语言",
+  "Open to everyone": "对所有人开放",
+  "Question or feedback": "问题或反馈",
+  "Complaint": "投诉",
+  "Report a post or a person": "举报帖子或用户",
+  "Something else": "其他事项",
+  "Interests saved": "兴趣已保存",
+  "Type a category name.": "请输入分类名称。",
+  "That category already exists or has already been requested.": "该分类已存在或已有人申请。",
+  "Thanks. An admin will review your request.": "谢谢！管理员会审核你的申请。",
+  "Sign in to see posts in your interests": "登录后查看你感兴趣的帖子",
+  "Message sent. We'll reply here.": "消息已发送，我们会在这里回复你。",
+  "Sent": "已发送",
+  "That post has expired or been removed.": "该帖子已过期或已被删除。",
+  "Sport": "运动项目",
+  "Category name": "分类名称",
+  "Why is it useful? (optional)": "为什么有用？（选填）",
+  "What is it about?": "是关于什么的？",
+  "Subject": "主题",
+  "Message": "消息",
+  "Contact": "联系我们",
+  "Post is for": "帖子面向",
+  "Only your interests": "只看我的兴趣",
+  "Can't find your category?": "找不到你的分类？",
+  "Suggest a new one. An admin checks every request before it's added.": "建议一个新分类。每个申请都会先经管理员审核再添加。",
+  "Open in Google Maps": "在 Google Maps 中打开",
+  "What if there's no category for my post?": "如果没有适合我帖子的分类怎么办？",
+  "Choose <b>Other</b>, and tap <b>Request a category</b> on the board to suggest a new one. An admin reviews every request, and approved categories appear for everyone.": "选择 <b>其他</b>，然后在留言板上点 <b>申请分类</b> 来建议新分类。管理员会审核每个申请，通过的分类所有人都能看到。",
+  "Tap <b>Report</b> on the post. The admin team will review it and take action if needed. To tell us more, or to report a person, use the <a href=\"#contact\">Contact</a> page.": "在帖子上点 <b>举报</b>，管理员团队会审核并在必要时处理。如需补充说明，或要举报某个用户，请使用 <a href=\"#contact\">联系我们</a> 页面。",
+  "Can I use abroadboard in another language?": "abroadboard 可以用其他语言吗？",
+  "Yes. Use the language menu at the top of any page to switch between English, Chinese (中文), te reo Māori and French (Français).": "可以。在任意页面顶部的语言菜单中，可以在 English、中文、te reo Māori 和 Français 之间切换。",
+  "Can I use dark mode?": "可以用深色模式吗？",
+  "Yes. abroadboard follows your device's light or dark setting. Tap the sun or moon button at the top of the page to switch.": "可以。abroadboard 会跟随你设备的浅色或深色设置。点页面顶部的太阳或月亮按钮即可切换。",
+  "How do interests and notifications work?": "兴趣和通知是怎么运作的？",
+  "Pick the categories you care about when you sign up, or any time on <a href=\"#join\">My account</a>. When someone posts in one of them, the bell at the top shows a notification with a link to the post. Tap <b>Only your interests</b> on the board to see just those posts.": "注册时选择你关心的分类，或随时在 <a href=\"#join\">我的账户</a> 中修改。有人在这些分类中发帖时，顶部的铃铛会显示一条带帖子链接的通知。在留言板上点 <b>只看我的兴趣</b>，就只显示这些帖子。",
+  "Sign in and use the <a href=\"#contact\">Contact</a> page to send a question, complaint or report. An admin replies there and you get a notification. You can also email <a href=\"mailto:info@abroadboard.com\">info@abroadboard.com</a>.": "登录后使用 <a href=\"#contact\">联系我们</a> 页面发送问题、投诉或举报。管理员会在那里回复，你也会收到通知。你也可以发邮件到 <a href=\"mailto:info@abroadboard.com\">info@abroadboard.com</a>。",
+  "Questions, feedback, a problem with your account, or want to advertise? Send the abroadboard team a message.": "有问题、反馈、账户出了问题，或者想投放广告？给 abroadboard 团队发消息吧。",
+  "Message the team": "给团队发消息",
+  "Contact the abroadboard team": "联系 abroadboard 团队",
+  "Send a question, a complaint or a report about a post or a person. An admin will reply here, and you'll get a notification when they do.": "发送问题、投诉，或举报某个帖子或用户。管理员会在这里回复，回复时你会收到通知。",
+  "Prefer email?": "更喜欢用邮件？",
+  "You can also write to us at <a href=\"mailto:info@abroadboard.com\">info@abroadboard.com</a>.": "你也可以发邮件到 <a href=\"mailto:info@abroadboard.com\">info@abroadboard.com</a>。",
+  "Urgent or unsafe?": "紧急或不安全？",
+  "If someone is in danger, call 111 first.": "如果有人身处危险，请先拨打 111。",
+  "Messages from students and requests for new categories.": "学生发来的消息和新分类申请。",
+  "Messages": "消息",
+  "Category requests": "分类申请",
+  "Filter posts": "筛选帖子",
+  "Choose a place on the map": "在地图上选择地点",
+  "Meet people": "交朋友",
+  "Sports": "运动",
+  "Living": "生活",
+  "Money and work": "钱与工作",
+  "Study": "学习",
+  "Getting around": "出行",
+  "University of Auckland, City Campus": "奥克兰大学 City 校区",
+  "AUT City Campus": "AUT City 校区",
+  "Massey University, Albany": "梅西大学 Albany 校区",
+  "Unitec, Mt Albert": "Unitec，Mt Albert",
+  "MIT Manukau": "MIT Manukau",
+  "University of Auckland, Grafton": "奥克兰大学 Grafton 校区",
+  "Britomart Transport Centre": "Britomart 交通中心",
+  "Albert Park": "Albert Park 公园",
+  "Coffee and chat": "喝咖啡聊天",
+  "Study partners": "学习伙伴",
+  "Weekend and day trips": "周末和一日游",
+  "Language exchange": "语言交换",
+  "Cultural and religious": "文化与宗教",
+  "Flatmates and rooms": "找室友和租房",
+  "Moving in and out": "搬家",
+  "Part-time jobs": "兼职",
+  "Discounts and deals": "折扣优惠",
+  "Textbooks and notes": "课本和笔记",
+  "Tutoring": "家教辅导",
+  "Rides and transport": "拼车和交通",
+  "Questions and advice": "问题和建议",
+  "Lost and found": "失物招领",
+  "Gym and fitness": "健身",
+  "Football (soccer)": "足球",
+  "Cricket": "板球",
+  "Badminton": "羽毛球",
+  "Basketball": "篮球",
+  "Volleyball": "排球",
+  "Table tennis": "乒乓球",
+  "Tennis": "网球",
+  "Rugby": "橄榄球",
+  "Swimming": "游泳",
+  "Running and walking": "跑步和散步",
+  "Other sport": "其他运动",
+  "Switch to dark theme": "切换到深色主题",
+  "Added by students": "学生新增的类别",
+  "Music and jamming": "音乐和即兴合奏",
+  "Found a student card at the library": "在图书馆捡到一张学生卡",
+  "Found near the level 2 printers on Tuesday afternoon. Message me with the name on the card and I'll return it.": "周二下午在二楼打印机附近捡到的。请给我发消息，说出卡上的名字，我会还给你。",
+  "Coffee after Monday lectures?": "周一下课后一起喝咖啡？",
+  "New to Auckland and keen to meet people outside class. I usually grab a flat white near Shortland Street around 3pm on Mondays. Come say hi.": "刚来奥克兰，想在课外认识些朋友。我周一下午3点左右通常会在 Shortland Street 附近买杯 flat white，欢迎来打个招呼。",
+  "Chile": "智利",
+  "5-a-side this Sunday, need 2 more players": "本周日五人制足球，还差2人",
+  "Casual game at the Domain sports fields, 4pm. Mixed ability, just for fun. Bring water and running shoes.": "下午4点在 Domain 运动场随便踢踢，水平不限，就是图个开心。记得带水和跑鞋。",
+  "Offering maths tutoring": "提供数学辅导",
+  "Third-year maths student. I can help with calculus and algebra for first-year courses. $25 an hour, first session free.": "数学专业大三学生，可以辅导大一课程的微积分和代数。每小时 $25，第一节免费。",
+  "Can teach Hindi, want to practise Spanish": "可以教印地语，想练西班牙语",
+  "I'm a native Hindi speaker learning Spanish. Happy to meet once a week for an hour, half in each language. Any level is fine.": "我的母语是印地语，正在学西班牙语。希望每周见一次，每次一小时，两种语言各说一半。什么水平都可以。",
+  "Selling a desk and chair before I fly home": "回国前出售书桌和椅子",
+  "Leaving Auckland at the end of semester. Desk, chair, lamp and a small bookshelf. Pick up from Grafton, cheap for a quick sale.": "学期末要离开奥克兰了。有书桌、椅子、台灯和一个小书架。在 Grafton 自取，便宜出，希望尽快卖掉。",
+  "Cafe on Queen Street hiring for weekends": "Queen Street 咖啡馆招周末员工",
+  "The cafe I work at needs another barista for Saturday and Sunday mornings. Training given. Ask me for the manager's details.": "我工作的咖啡馆需要再招一名周六、周日上午的咖啡师，提供培训。可以找我要经理的联系方式。",
+  "Sharing a ride to the airport": "拼车去机场",
+  "Flying out on the 20th, leaving the city around 6am. Anyone want to split an Uber? Should be about $25 each.": "20号的航班，早上6点左右从市区出发。有人想一起拼 Uber 吗？每人大约 $25。",
+  "Day trip to Piha beach on Saturday": "周六 Piha 海滩一日游",
+  "Two of us are driving out to Piha and have three spare seats. Leaving the city at 9am and back before dinner. Share petrol, about $10 each.": "我们两个人开车去 Piha，还有三个空位。早上9点从市区出发，晚饭前回来。油费平摊，每人大约 $10。",
+  "Diwali night, everyone welcome": "排灯节之夜，欢迎所有人",
+  "Lights, sweets and music at our flat common room. Bring a friend and a small plate of food if you can. No need to RSVP.": "在我们公寓的公共活动室有灯饰、甜点和音乐。欢迎带朋友来，方便的话带一小盘食物。不用提前报名。",
+  "Lost a black umbrella on the Link bus": "在 Link 巴士上丢了一把黑伞",
+  "Plain black umbrella with a wooden handle. Lost on the Inner Link on Wednesday. It means a lot to me.": "纯黑色雨伞，木质手柄。周三在 Inner Link 上丢的，对我很重要。",
+  "Student discount at a local gym": "本地健身房学生优惠",
+  "Show your student ID at the gym on Symonds Street for half-price membership in your first month.": "在 Symonds Street 的健身房出示学生证，第一个月会员费半价。",
+  "Looking for a badminton doubles partner": "找羽毛球双打搭档",
+  "I play twice a week at the rec centre and my partner just graduated. Intermediate level, happy to split court fees.": "我每周在体育中心打两次球，搭档刚毕业了。中等水平，场地费可以平摊。",
+  "Selling a circuit analysis textbook": "出售电路分析课本",
+  "Used for one semester, no writing inside. Comes with my printed lecture notes for free.": "只用了一个学期，里面没有字迹。免费附送我打印的课堂笔记。",
+  "Korean and English conversation partner": "韩语和英语会话伙伴",
+  "I want to improve my English speaking and can help you with Korean. Cafe on campus or a video call, whatever suits you.": "我想提高英语口语，可以帮你练韩语。校园咖啡馆或视频通话都行，看你方便。",
+  "Anyone want to start a photography walk group?": "有人想组个摄影散步小组吗？",
+  "I'd like to explore Auckland's street art and parks with a camera. Phone cameras totally fine.": "想带着相机去探索奥克兰的街头艺术和公园。用手机拍完全没问题。",
+  "Campus library is looking for student helpers": "校园图书馆招学生助理",
+  "Shelving books and helping at the front desk, around 10 hours a week. Good for students on a visa with work rights.": "整理上架图书、在前台帮忙，每周大约10小时。适合持有可打工签证的学生。",
+  "Need help with academic writing": "需要学术写作方面的帮助",
+  "Looking for someone to check the structure of my essays before I submit them. Happy to pay or swap for help with coding.": "想找人在我提交论文前帮忙看看结构。可以付费，或者用编程方面的帮助来交换。",
+  "Gym buddy for early mornings": "找早起健身搭子",
+  "Training at the campus gym at 6:30am on weekdays. Looking for someone to keep me motivated. Beginners welcome.": "工作日早上6:30在学校健身房训练，想找个人互相督促。欢迎新手。",
+  "Friday prayers and lunch group": "周五礼拜和午餐小组",
+  "A few of us walk to the mosque together on Fridays and have lunch afterwards. New students welcome to join us.": "我们几个人每周五一起步行去清真寺，之后一起吃午饭。欢迎新同学加入。",
+  "Swapping first-year accounting notes": "交换大一会计笔记",
+  "I have neat notes for first-year accounting and want notes for business statistics in return.": "我有整理得很清楚的大一会计笔记，想换商业统计的笔记。",
+  "Need help moving boxes on Saturday": "周六需要人帮忙搬箱子",
+  "Moving from Mt Albert to the city. About ten boxes and a mattress. I'll pay for pizza and petrol if you have a car.": "从 Mt Albert 搬到市区，大约十个箱子和一张床垫。如果你有车，我请吃披萨并付油费。",
+  "Best way to get to the North Shore campus?": "去北岸校区最好怎么走？",
+  "Moving to Albany next semester. Is the Northern Express bus reliable, or is it worth carpooling?": "下学期要搬到 Albany。Northern Express 巴士靠谱吗，还是拼车更划算？",
+  "Half-price movie tickets on Tuesdays": "周二电影票半价",
+  "Most cinemas in the city have cheap Tuesdays and an extra student price. Worth checking before you book.": "市区大多数电影院周二都有特价，还有额外的学生价。订票前值得看看。",
+  "Waiting for an admin": "等待管理员处理",
+  "Add to this conversation": "补充内容",
+  "Send": "发送",
+  "Needs a reply": "待回复",
+  "Write a reply to the student": "给学生写回复",
+  "Mark as resolved": "标为已解决",
+  "Send reply": "发送回复",
+  "Reopen": "重新打开",
+  "Marked as resolved": "已标为已解决",
+  "Approved": "已通过",
+  "Declined": "未通过",
+  "Switch to light theme": "切换到浅色主题",
 };

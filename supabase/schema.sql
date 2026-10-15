@@ -8,6 +8,7 @@
 --   posts     board posts and food & budget tips              (Stories 2, 18)
 --   events    local event listings, $5 fee status             (Story 16)
 --   reports   "Report" clicks on posts, visible to admins     (Story 8)
+--   category_requests, support_threads/support_messages, notifications  (section 8)
 --
 -- Rules it enforces on the server (not just in the browser)
 --   * Only student emails from the accepted Auckland institutions can post,
@@ -474,3 +475,214 @@ select cron.schedule(
   '20 14 * * *',                     -- daily at 14:20 UTC (early morning NZ)
   $$ delete from public.events where event_date < current_date - 7 $$
 );
+
+
+-- ---------------------------------------------------------------------------
+-- 8. Interests, notifications, category requests and messages to the admins
+--    (FC-34/41 interests, FC-35 notifications, FC-44 categories, FC-37 messages)
+-- ---------------------------------------------------------------------------
+
+-- Interests are board category names (CATEGORY_GROUPS in js/config.js).
+alter table public.profiles add column if not exists interests text[] not null default '{}'
+  check (coalesce(array_length(interests, 1), 0) <= 40);
+alter table public.profiles add column if not exists notify_interests boolean not null default true;
+grant update (display_name, home_country, campus, interests, notify_interests) on public.profiles to authenticated;
+
+-- Posts in "Sports" carry a sport tag (SPORTS in js/config.js).
+alter table public.posts add column if not exists sport text check (char_length(sport) <= 30);
+grant insert (sport) on public.posts to authenticated;
+
+-- New categories students ask for. Approved names are readable by everyone
+-- and show up in the category menus.
+create table if not exists public.category_requests (
+  id            bigint generated always as identity primary key,
+  name          text not null check (char_length(trim(name)) between 2 and 30),
+  reason        text check (char_length(reason) <= 300),
+  requested_by  uuid not null default auth.uid()
+                references public.profiles (id) on delete cascade,
+  status        text not null default 'pending'
+                check (status in ('pending', 'approved', 'declined')),
+  created_at    timestamptz not null default now()
+);
+alter table public.category_requests enable row level security;
+drop policy if exists "Approved categories are public" on public.category_requests;
+create policy "Approved categories are public"
+  on public.category_requests for select to anon, authenticated
+  using (status = 'approved' or requested_by = auth.uid() or public.is_admin());
+drop policy if exists "Students request categories" on public.category_requests;
+create policy "Students request categories"
+  on public.category_requests for insert to authenticated
+  with check (requested_by = auth.uid() and public.is_student());
+drop policy if exists "Admins answer category requests" on public.category_requests;
+create policy "Admins answer category requests"
+  on public.category_requests for update to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+revoke insert, update, delete, select on public.category_requests from anon, authenticated;
+grant select on public.category_requests to anon, authenticated;
+grant insert (name, reason) on public.category_requests to authenticated;
+grant update (status) on public.category_requests to authenticated;
+
+-- Messages between students and the admins (contact, complaints, reports).
+create table if not exists public.support_threads (
+  id          bigint generated always as identity primary key,
+  user_id     uuid not null default auth.uid()
+              references public.profiles (id) on delete cascade,
+  kind        text not null default 'contact'
+              check (kind in ('contact', 'complaint', 'report', 'other')),
+  subject     text not null check (char_length(subject) between 1 and 120),
+  status      text not null default 'open' check (status in ('open', 'closed')),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+create table if not exists public.support_messages (
+  id          bigint generated always as identity primary key,
+  thread_id   bigint not null references public.support_threads (id) on delete cascade,
+  sender_id   uuid not null default auth.uid()
+              references public.profiles (id) on delete cascade,
+  from_admin  boolean not null default false,
+  body        text not null check (char_length(body) between 1 and 2000),
+  created_at  timestamptz not null default now()
+);
+create index if not exists support_messages_thread_idx on public.support_messages (thread_id, created_at);
+
+create or replace function public.owns_thread(tid bigint)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.support_threads t where t.id = tid and t.user_id = auth.uid())
+$$;
+revoke execute on function public.owns_thread(bigint) from anon, public;
+grant execute on function public.owns_thread(bigint) to authenticated;
+
+alter table public.support_threads enable row level security;
+drop policy if exists "Students and admins read threads" on public.support_threads;
+create policy "Students and admins read threads"
+  on public.support_threads for select to authenticated
+  using (user_id = auth.uid() or public.is_admin());
+drop policy if exists "Students start threads" on public.support_threads;
+create policy "Students start threads"
+  on public.support_threads for insert to authenticated
+  with check (user_id = auth.uid() and public.is_student());
+drop policy if exists "Admins close threads" on public.support_threads;
+create policy "Admins close threads"
+  on public.support_threads for update to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+revoke insert, update, delete, select on public.support_threads from anon, authenticated;
+grant select on public.support_threads to authenticated;
+grant insert (kind, subject) on public.support_threads to authenticated;
+grant update (status) on public.support_threads to authenticated;
+
+alter table public.support_messages enable row level security;
+drop policy if exists "Thread members read messages" on public.support_messages;
+create policy "Thread members read messages"
+  on public.support_messages for select to authenticated
+  using (public.owns_thread(thread_id) or public.is_admin());
+drop policy if exists "Thread members write messages" on public.support_messages;
+create policy "Thread members write messages"
+  on public.support_messages for insert to authenticated
+  with check (sender_id = auth.uid() and (public.owns_thread(thread_id) or public.is_admin()));
+revoke insert, update, delete, select on public.support_messages from anon, authenticated;
+grant select on public.support_messages to authenticated;
+grant insert (thread_id, body) on public.support_messages to authenticated;
+
+-- In-site notifications: new posts in a student's interests, admin replies,
+-- and answers to category requests.
+create table if not exists public.notifications (
+  id          bigint generated always as identity primary key,
+  user_id     uuid not null references public.profiles (id) on delete cascade,
+  kind        text not null check (kind in ('post', 'reply', 'category')),
+  post_id     bigint references public.posts (id) on delete cascade,
+  thread_id   bigint references public.support_threads (id) on delete cascade,
+  title       text not null check (char_length(title) <= 160),
+  detail      text check (char_length(detail) <= 60),
+  read_at     timestamptz,
+  created_at  timestamptz not null default now()
+);
+create index if not exists notifications_user_idx on public.notifications (user_id, created_at desc);
+alter table public.notifications enable row level security;
+drop policy if exists "Students read their notifications" on public.notifications;
+create policy "Students read their notifications"
+  on public.notifications for select to authenticated using (user_id = auth.uid());
+drop policy if exists "Students mark notifications read" on public.notifications;
+create policy "Students mark notifications read"
+  on public.notifications for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists "Students clear notifications" on public.notifications;
+create policy "Students clear notifications"
+  on public.notifications for delete to authenticated using (user_id = auth.uid());
+revoke insert, update, delete, select on public.notifications from anon, authenticated;
+grant select, delete on public.notifications to authenticated;
+grant update (read_at) on public.notifications to authenticated;
+
+-- A new board post notifies everyone who picked its category as an interest.
+create or replace function public.notify_interested()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if new.section = 'board' then
+    insert into public.notifications (user_id, kind, post_id, title, detail)
+    select p.id, 'post', new.id, left(new.title, 160), left(new.category, 60)
+      from public.profiles p
+     where p.id <> new.author_id and p.notify_interests and new.category = any (p.interests);
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists on_post_notify on public.posts;
+create trigger on_post_notify after insert on public.posts
+  for each row execute function public.notify_interested();
+
+-- Messages: mark admin replies, keep the thread's updated_at current, and
+-- notify the student when an admin answers.
+create or replace function public.on_support_message()
+returns trigger language plpgsql security definer set search_path = '' as $$
+declare
+  owner uuid; subj text;
+begin
+  select user_id, subject into owner, subj from public.support_threads where id = new.thread_id;
+  new.from_admin := new.sender_id <> owner and public.is_admin();
+  update public.support_threads set updated_at = now(),
+         status = case when new.from_admin then status else 'open' end
+   where id = new.thread_id;
+  if new.from_admin then
+    insert into public.notifications (user_id, kind, thread_id, title)
+    values (owner, 'reply', new.thread_id, left(subj, 160));
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists on_support_message on public.support_messages;
+create trigger on_support_message before insert on public.support_messages
+  for each row execute function public.on_support_message();
+
+-- Tell the student when an admin approves or declines their category.
+create or replace function public.on_category_answer()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if new.status <> old.status and new.status in ('approved', 'declined') then
+    insert into public.notifications (user_id, kind, title, detail)
+    values (new.requested_by, 'category', left(new.name, 160), new.status);
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists on_category_answer on public.category_requests;
+create trigger on_category_answer after update on public.category_requests
+  for each row execute function public.on_category_answer();
+
+revoke execute on function public.notify_interested() from anon, authenticated, public;
+revoke execute on function public.on_support_message() from anon, authenticated, public;
+revoke execute on function public.on_category_answer() from anon, authenticated, public;
+
+-- Board categories were renamed in October 2026 (FC-44). Move older posts across.
+update public.posts set category = case category
+    when 'Housing' then 'Flatmates and rooms'
+    when 'Study buddies' then 'Study partners'
+    when 'Help' then 'Questions and advice'
+    when 'Sport' then 'Sports'
+    else category end
+ where section = 'board' and category in ('Housing', 'Study buddies', 'Help', 'Sport');
+update public.posts set category = case title
+    when 'Rangitoto hike this Sunday, who''s in?' then 'Weekend and day trips'
+    when 'Weekly study session at the library' then 'Study partners'
+    else 'Coffee and chat' end
+ where section = 'board' and category = 'Meetups';
+update public.posts set category = 'Sports', sport = 'Cricket'
+ where section = 'board' and title = 'Casual cricket in the Domain, Saturday 2pm';

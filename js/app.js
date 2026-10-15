@@ -2,18 +2,23 @@
 // whether Supabase is connected (live) or not (demo).
 
 import { createBackend, isStudentEmail, todayISO } from "./data.js";
-import { INSTITUTIONS, CAMPUSES, MAX_PHOTOS, MAX_PHOTO_MB, EXPIRY_DAYS, EVENT_FEE_NZD, PRIVACY_VERSION, PRIVACY_CONTACT, SIGNUP_CODE } from "./config.js";
-import { t, getLang, setLang, locale, applyStatic } from "./i18n.js";
+import { INSTITUTIONS, CAMPUSES, MAX_PHOTOS, MAX_PHOTO_MB, EXPIRY_DAYS, EVENT_FEE_NZD, PRIVACY_VERSION, PRIVACY_CONTACT, SIGNUP_CODE,
+  CATEGORY_GROUPS, CATEGORIES, SPORTS, MAP_PLACES } from "./config.js";
+import { t, getLang, setLang, locale, applyStatic, LANGS } from "./i18n.js";
+import { search, suggest } from "./search.js";
 
 const DAY = 864e5;
-const CATEGORIES = ["Meetups", "Housing", "Study buddies", "Help"]; // Story 7
 const MARKET_CATEGORIES = ["Furniture", "Electronics", "Books & study", "Kitchen", "Clothing", "Bikes & transport", "Other"];
 const CONDITIONS = ["New", "Like new", "Good", "Fair"];
 // Who a post is meant for. Stored as the key; shown as the label.
 const GENDERS = { any: "Anyone", women: "Women", men: "Men", nonbinary: "Non-binary people" };
 const SLEEPERS = { any: "Any", light: "Light sleepers", heavy: "Heavy sleepers" };
 const METHODS = { email: "Email", mobile: "Mobile", social: "Social media" };
-const VIEWS = ["board", "market", "events", "campus", "food", "faq", "join", "privacy"];
+const VIEWS = ["board", "market", "events", "campus", "food", "faq", "contact", "admin", "join", "privacy"];
+// Gender filter on the board (FC-36): which posts to show by who they're for.
+const GENDER_FILTER = { all: "All posts", any: "Open to everyone", women: "Women", men: "Men", nonbinary: "Non-binary people" };
+// Kinds of message students can send the admins (FC-37).
+const THREAD_KINDS = { contact: "Question or feedback", complaint: "Complaint", report: "Report a post or a person", other: "Something else" };
 const NOT_CONFIRMED = "Confirm that you study in Auckland (on your account page) before posting.";
 
 const $ = (s) => document.querySelector(s);
@@ -22,14 +27,19 @@ const $ = (s) => document.querySelector(s);
 const tx = (s) => esc(s ? t(s) : s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-const freshJoin = () => ({ mode: "signup", stage: "email", email: "", name: "", country: "", campus: "", auckland: false, consent: false, error: "", busy: false });
+const freshJoin = () => ({ mode: "signup", stage: "email", email: "", name: "", country: "", campus: "", interests: [], auckland: false, consent: false, error: "", busy: false });
 const state = {
   user: null,
   posts: null, market: null, food: null, events: null, // null = still loading
   reports: [],
   contactInfo: { requests: [], contacts: {} },
   errors: {},
-  filter: "All", query: "",
+  filter: "All", sport: "All", gender: "all", onlyMine: false, query: "",
+  categoryRequests: [], // approved ones add categories; admins see all
+  notifications: [],
+  threads: null, // messages with the admins; null = not loaded
+  adminTab: "messages",
+  jumpTo: null, // post id to scroll to (from a notification link)
   marketFilter: "All", marketQuery: "",
   confirmDelete: null, // "post:12" or "event:4" while waiting for a second click
   join: freshJoin(),
@@ -66,7 +76,7 @@ const markLoaded = (root) => root.querySelectorAll("img.ph").forEach((i) => i.co
 
 // ---------------------------------------------------------------- data loading
 async function loadAll() {
-  await Promise.all([loadPosts(), loadMarket(), loadFood(), loadEvents(), loadReports(), loadContacts()]);
+  await Promise.all([loadCategories(), loadPosts(), loadMarket(), loadFood(), loadEvents(), loadReports(), loadContacts(), loadNotifications(), loadThreads()]);
 }
 async function run(key, fn) {
   try { state.errors[key] = null; await fn(); }
@@ -79,6 +89,38 @@ const loadEvents = () => run("events", async () => { state.events = await db.lis
 const loadReports = () => run("reports", async () => { state.reports = await db.listReports(); }).then(renderBoard);
 const loadContacts = () => run("contacts", async () => { state.contactInfo = await db.listContactInfo(); })
   .then(() => { renderBoard(); renderMarket(); });
+const loadCategories = () => run("categories", async () => { state.categoryRequests = await db.listCategoryRequests(); })
+  .then(() => { renderBoard(); renderAdmin(); });
+const loadNotifications = () => run("notifications", async () => { state.notifications = await db.listNotifications(); })
+  .then(renderBell);
+const loadThreads = () => run("threads", async () => { state.threads = await db.listThreads(); })
+  .then(() => { renderContact(); renderAdmin(); });
+// Signed-in data that changes with the account.
+const loadMine = () => Promise.all([loadReports(), loadContacts(), loadNotifications(), loadThreads(), loadCategories()]);
+
+// Approved category requests become extra categories (FC-44).
+const extraCategories = () => state.categoryRequests.filter((r) => r.status === "approved" && !CATEGORIES.includes(r.name)).map((r) => r.name);
+function categoryGroups() {
+  const extra = extraCategories();
+  const groups = CATEGORY_GROUPS.filter((g) => g.group !== "Other");
+  if (extra.length) groups.push({ group: "Added by students", categories: extra });
+  return [...groups, ...CATEGORY_GROUPS.filter((g) => g.group === "Other")];
+}
+// <option>s grouped by <optgroup>; "Sports" etc. are shown translated.
+const categoryOptions = (selected, withAll = false) =>
+  (withAll ? `<option value="All"${selected === "All" ? " selected" : ""}>${t("All categories")}</option>` : "") +
+  categoryGroups().map((g) => g.categories.length === 1 && g.categories[0] === g.group
+    ? `<option value="${esc(g.group)}"${g.group === selected ? " selected" : ""}>${esc(t(g.group))}</option>`
+    : `<optgroup label="${esc(t(g.group))}">${g.categories.map((c) => `<option value="${esc(c)}"${c === selected ? " selected" : ""}>${esc(t(c))}</option>`).join("")}</optgroup>`).join("");
+const sportOptions = (selected, withAll = false) =>
+  (withAll ? `<option value="All"${selected === "All" ? " selected" : ""}>${t("All sports")}</option>` : "") +
+  SPORTS.map((x) => `<option value="${esc(x)}"${x === selected ? " selected" : ""}>${esc(t(x))}</option>`).join("");
+
+// Grouped tick boxes for picking interests (sign-up and the preference center).
+const interestPicker = (selected, prefix) => `<div class="interest-pick" id="${prefix}Interests">${categoryGroups().map((g) => `
+    <fieldset><legend>${esc(t(g.group))}</legend>${g.categories.map((c) => `<label class="ichip"><input type="checkbox" value="${esc(c)}"${selected.includes(c) ? " checked" : ""}><span>${esc(t(c))}</span></label>`).join("")}</fieldset>`).join("")}
+  </div>`;
+const readInterests = (prefix) => [...document.querySelectorAll(`#${prefix}Interests input:checked`)].map((i) => i.value);
 
 // Name, country and campus typed on the Join form are kept until the student
 // comes back signed in (they may use the link in the email instead of the code).
@@ -90,7 +132,7 @@ async function applyPending(user) {
   if (!p || !user || p.email.toLowerCase() !== user.email.toLowerCase()) return false;
   try { localStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
   let changed = false;
-  if (p.name || p.country) { await db.updateProfile(user.id, { name: p.name, country: p.country }); changed = true; }
+  if (p.name || p.country || p.interests?.length) { await db.updateProfile(user.id, { name: p.name, country: p.country, interests: p.interests?.length ? p.interests : undefined }); changed = true; }
   if (p.campus && !user.aucklandConfirmed) { await db.confirmAuckland(p.campus); changed = true; }
   return changed;
 }
@@ -98,7 +140,7 @@ async function applyPending(user) {
 async function refreshUser() {
   state.user = await db.currentUser();
   if (state.user && (await applyPending(state.user).catch(() => false))) state.user = await db.currentUser();
-  renderWho(); renderJoin(); rerenderLists();
+  renderWho(); renderJoin(); rerenderLists(); renderContact(); renderAdmin(); renderBell();
 }
 
 // ---------------------------------------------------------------- header & footer
@@ -112,6 +154,8 @@ function renderWho() {
     $("#signinLink").onclick = () => { if (SIGNUP_CODE) { state.join.mode = "signin"; state.join.error = ""; renderJoin(); } };
   }
   $("#joinTab").textContent = t(state.user ? "My account" : "Join");
+  $("#adminTab").hidden = !state.user?.isAdmin;
+  $("#bellWrap").hidden = !state.user;
   $("#adminBadge").innerHTML = state.user?.isAdmin ? `<span class="admin-on">${t("Admin")}</span>` : "";
   if (db.mode === "demo") {
     $("#adminToggle").hidden = false; $("#resetDemo").hidden = false;
@@ -203,8 +247,8 @@ const byline = (p) => `<span>${esc(p.authorName)}${p.authorCountry ? " · " + tx
 
 function postCard(p) {
   const { total } = reportInfo(p.id);
-  return `<article class="post${state.user?.isAdmin && total ? " is-reported" : ""}">
-    <div class="post-head"><span class="tag">${esc(t(p.category))}</span>${byline(p)}</div>
+  return `<article class="post${state.user?.isAdmin && total ? " is-reported" : ""}${state.jumpTo === p.id ? " is-target" : ""}" id="post-${p.id}">
+    <div class="post-head"><span class="tag">${esc(t(p.category))}${p.sport ? ` · ${esc(t(p.sport))}` : ""}</span>${byline(p)}</div>
     <h3>${tx(p.title)}</h3>
     <p class="body">${tx(p.body)}</p>
     ${photos(p)}
@@ -220,7 +264,7 @@ function listingCard(p) {
   const cover = img.length
     ? `<button type="button" class="cover" data-photo="${p.id}:0" aria-label="${t("Open photo {n}", { n: 1 })}"><img class="ph" src="${esc(img[0])}" alt="" loading="lazy" decoding="async">${img.length > 1 ? `<span class="more-photos">+${img.length - 1}</span>` : ""}</button>`
     : `<div class="cover empty-cover" aria-hidden="true"><span class="dot"></span></div>`;
-  return `<article class="listing${state.user?.isAdmin && total ? " is-reported" : ""}">
+  return `<article class="listing${state.user?.isAdmin && total ? " is-reported" : ""}" id="post-${p.id}">
     ${cover}
     <div class="listing-body">
       <div class="price-row"><span class="price">${(p.price ? tx(p.price) : t("Ask"))}</span>${p.condition ? `<span class="pill soft">${esc(t(p.condition))}</span>` : ""}</div>
@@ -240,11 +284,23 @@ function chipsFor(list, base, current) {
   const cats = ["All", ...base, ...Object.keys(counts).filter((c) => c !== "All" && !base.includes(c))];
   return cats.map((c) => `<button class="chip" aria-pressed="${c === current}" data-cat="${esc(c)}">${esc(t(c))}<span class="n">${counts[c] || 0}</span></button>`).join("");
 }
-const matches = (p, filter, query) => {
-  const q = query.trim().toLowerCase();
-  return (filter === "All" || p.category === filter) &&
-    (!q || `${p.title} ${p.body} ${p.category} ${p.audienceNote || ""} ${t(p.title)} ${t(p.body)} ${t(p.category)}`.toLowerCase().includes(q));
-};
+// Everything a search can match on, in English and in the chosen language.
+const searchText = (p) => [p.title, p.body, p.category, p.sport, p.audienceNote, p.price, p.authorName]
+  .filter(Boolean).flatMap((x) => [x, t(x)]).join(" ");
+const titleText = (p) => t(p.title);
+
+// Suggestions under a search box (FC-43): a corrected spelling and matching titles.
+function renderSuggest(box, list, query) {
+  const el = $(box);
+  const { didYouMean, titles } = query.trim().length >= 2
+    ? suggest(list, query, searchText, titleText, [...CATEGORIES, ...SPORTS].flatMap((c) => [c, t(c)]))
+    : { didYouMean: "", titles: [] };
+  const exact = titles.length === 1 && titles[0].toLowerCase() === query.trim().toLowerCase();
+  if (!didYouMean && (!titles.length || exact)) { el.hidden = true; el.innerHTML = ""; return; }
+  el.innerHTML = (didYouMean ? `<button type="button" class="sugg dym" data-sugg="${esc(didYouMean)}"><span>${t("Did you mean <b>{q}</b>?", { q: esc(didYouMean) })}</span></button>` : "") +
+    titles.map((x) => `<button type="button" class="sugg" data-sugg="${esc(x)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>${esc(x)}</button>`).join("");
+  el.hidden = false;
+}
 
 // Ad slot (Story 5). Replace the inner HTML with your Google AdSense <ins> tag once approved.
 const AD_SLOT = () => `<div class="ad" role="complementary" aria-label="${t("Advertisement")}"><div><small>${t("Advertisement")}</small><strong>${t("Google AdSense slot")}</strong></div><span class="dim">responsive · 728×90</span></div>`;
@@ -255,13 +311,41 @@ function renderBoard() {
   if (state.errors.posts) { feed.innerHTML = `<div class="error-box"><b>${t("Couldn't load posts.")}</b> ${esc(t(state.errors.posts))}</div>`; return; }
   if (!state.posts) return;
 
-  $("#chips").innerHTML = chipsFor(state.posts, CATEGORIES, state.filter);
-  const list = state.posts.filter((p) => matches(p, state.filter, state.query)).sort((a, b) => b.createdAt - a.createdAt); // newest first (Story 15)
+  // Filters (FC-36, FC-40, FC-44): category, sport, who the post is for, and "Only your interests".
+  const counts = {};
+  state.posts.forEach((p) => (counts[p.category] = (counts[p.category] || 0) + 1));
+  $("#catSel").innerHTML = categoryOptions(state.filter, true);
+  [...$("#catSel").options].forEach((o) => { if (o.value !== "All") o.textContent += ` (${counts[o.value] || 0})`; });
+  $("#sportPick").hidden = state.filter !== "Sports";
+  $("#sportSel").innerHTML = sportOptions(state.sport, true);
+  $("#genderSel").innerHTML = Object.entries(GENDER_FILTER).map(([k, v]) => `<option value="${k}"${k === state.gender ? " selected" : ""}>${esc(t(v))}</option>`).join("");
+  const interests = state.user?.interests || [];
+  $("#mineBtn").setAttribute("aria-pressed", String(state.onlyMine));
+
+  let list = state.posts.filter((p) =>
+    (state.filter === "All" || p.category === state.filter) &&
+    (state.filter !== "Sports" || state.sport === "All" || p.sport === state.sport) &&
+    (state.gender === "all" || (p.audienceGender || "any") === state.gender) &&
+    (!state.onlyMine || interests.includes(p.category)));
+  list.sort((a, b) => b.createdAt - a.createdAt); // newest first (Story 15)
+  const found = search(list, state.query, searchText); // best matches first while searching
+  list = found.items;
+
+  const note = $("#filterNote");
+  if (state.onlyMine && !interests.length) note.innerHTML = t("You haven't picked any interests yet. <a href=\"#join\">Choose them on My account</a>.");
+  else if (found.close) note.innerHTML = t("No exact matches for “{q}”. Showing the closest posts.", { q: esc(state.query.trim()) });
+  else if (state.onlyMine) note.innerHTML = t("Showing posts in your interests: {list}", { list: interests.map((c) => esc(t(c))).join(", ") });
+  else note.innerHTML = "";
 
   feed.innerHTML = list.length
     ? list.map((p, i) => postCard(p) + (i === 2 ? AD_SLOT() : "")).join("") + (list.length <= 2 ? AD_SLOT() : "")
     : `<div class="empty">${t(state.posts.length ? "No posts match that. Try another category or search." : "No posts yet. Be the first to post!")}</div>${AD_SLOT()}`;
   markLoaded(feed);
+  if (state.jumpTo && $(`#post-${state.jumpTo}`)) {
+    const el = $(`#post-${state.jumpTo}`);
+    state.jumpTo = null;
+    requestAnimationFrame(() => el.scrollIntoView({ behavior: "smooth", block: "center" }));
+  }
 
   const soon = state.posts.filter((p) => daysLeft(p.createdAt) <= 3).length;
   const reported = new Set(state.reports.map((r) => r.post_id)).size;
@@ -279,7 +363,8 @@ function renderMarket() {
   if (state.errors.market) { box.innerHTML = `<div class="error-box"><b>${t("Couldn't load listings.")}</b> ${esc(t(state.errors.market))}</div>`; return; }
   if (!state.market) return;
   $("#marketChips").innerHTML = chipsFor(state.market, MARKET_CATEGORIES, state.marketFilter);
-  const list = state.market.filter((p) => matches(p, state.marketFilter, state.marketQuery)).sort((a, b) => b.createdAt - a.createdAt);
+  const list = search(state.market.filter((p) => state.marketFilter === "All" || p.category === state.marketFilter)
+    .sort((a, b) => b.createdAt - a.createdAt), state.marketQuery, searchText).items;
   box.innerHTML = list.length
     ? list.map(listingCard).join("")
     : `<div class="empty">${t(state.market.length ? "Nothing matches that. Try another category or search." : "Nothing for sale yet. List the first item!")}</div>`;
@@ -321,67 +406,39 @@ function renderFood() {
 const rerenderLists = () => { renderBoard(); renderMarket(); renderEvents(); renderFood(); };
 
 // ---------------------------------------------------------------- privacy notice
-const privacyContact = () => PRIVACY_CONTACT
-  ? `email <a href="mailto:${esc(PRIVACY_CONTACT)}">${esc(PRIVACY_CONTACT)}</a>`
-  : "contact the abroadboard admins";
-
+// Each sentence goes through t(), so the notice follows the language menu.
+// If a translation differs from the English, the English version applies.
 function privacyNotice() {
-  if (getLang() === "zh") return privacyNoticeZh();
-  return `<h3>What we collect</h3>
-    <ul>
-      <li>Your student email address, used only to sign you in and to check that you study at an accepted Auckland institution.</li>
-      <li>The area of Auckland you study in, and your confirmation that you study in Auckland.</li>
-      <li>The display name you choose and, if you add it, your home country. Both appear on your posts.</li>
-      <li>What you post: board posts, items for sale, photos, food tips, events and reports.</li>
-      <li>The contact details you add to a post (email, mobile or social media), and who asked to see them.</li>
-    </ul>
-    <h3>Who can see it</h3>
-    <ul>
-      <li>Posts, photos, events, your display name and home country are public on this site.</li>
-      <li>Contact details on a post are hidden. Only students you approve, and the site admins, can see them.</li>
-      <li>Your sign-in email address is never shown publicly.</li>
-      <li>Reports are seen only by you and the site admins.</li>
-    </ul>
-    <h3>Where it's kept and for how long</h3>
-    <ul>
-      <li>Data and photos are stored with Supabase in its Seoul, South Korea region. The site is hosted by Vercel.</li>
-      <li>Posts and their photos are deleted automatically after ${EXPIRY_DAYS} days, and events about a week after they happen.</li>
-      <li>Your account stays until you ask us to delete it.</li>
-    </ul>
-    <h3>Your rights</h3>
-    <p>Under the New Zealand Privacy Act 2020 you can ask to see, correct or delete your information at any time. To do that, ${privacyContact()}. We don't sell your data or use it for advertising profiles.</p>
-    <p class="muted">Notice version ${esc(PRIVACY_VERSION)}</p>`;
-}
-
-// Mandarin version of the notice above. Keep the two in step when either changes.
-function privacyNoticeZh() {
   const contact = PRIVACY_CONTACT
-    ? `发送邮件至 <a href="mailto:${esc(PRIVACY_CONTACT)}">${esc(PRIVACY_CONTACT)}</a>`
-    : "联系 abroadboard 管理员";
-  return `<h3>我们收集哪些信息</h3>
-    <ul>
-      <li>你的学生邮箱，仅用于登录，以及确认你就读于认可的奥克兰院校。</li>
-      <li>你就读的奥克兰区域，以及你确认自己在奥克兰就读的记录。</li>
-      <li>你选择的显示名称，以及你填写的家乡国家（如有）。两者都会显示在你的帖子上。</li>
-      <li>你发布的内容：留言板帖子、二手物品、照片、美食小贴士、活动和举报。</li>
-      <li>你在帖子中填写的联系方式（邮箱、手机或社交媒体），以及谁申请查看过。</li>
-    </ul>
-    <h3>谁能看到</h3>
-    <ul>
-      <li>帖子、照片、活动、你的显示名称和家乡国家在本网站公开显示。</li>
-      <li>帖子里的联系方式是隐藏的，只有你同意的同学和网站管理员能看到。</li>
-      <li>你的登录邮箱不会公开显示。</li>
-      <li>举报内容只有你和网站管理员能看到。</li>
-    </ul>
-    <h3>存放在哪里、保存多久</h3>
-    <ul>
-      <li>数据和照片存放在 Supabase 的韩国首尔数据中心，网站由 Vercel 托管。</li>
-      <li>帖子及其照片会在 ${EXPIRY_DAYS} 天后自动删除，活动结束约一周后删除。</li>
-      <li>你的账户会一直保留，直到你要求删除。</li>
-    </ul>
-    <h3>你的权利</h3>
-    <p>根据新西兰《2020 年隐私法》，你可以随时要求查看、更正或删除你的信息。如需办理，请${contact}。我们不会出售你的数据，也不会用它来建立广告画像。</p>
-    <p class="muted">声明版本 ${esc(PRIVACY_VERSION)}（如中英文有出入，以英文版为准）</p>`;
+    ? t("email {email}", { email: `<a href="mailto:${esc(PRIVACY_CONTACT)}">${esc(PRIVACY_CONTACT)}</a>` })
+    : t("contact the abroadboard admins");
+  const list = (items) => `<ul>${items.map((x) => `<li>${x}</li>`).join("")}</ul>`;
+  return `<h3>${t("What we collect")}</h3>
+    ${list([
+      t("Your student email address, used only to sign you in and to check that you study at an accepted Auckland institution."),
+      t("The area of Auckland you study in, and your confirmation that you study in Auckland."),
+      t("The display name you choose and, if you add it, your home country. Both appear on your posts."),
+      t("The interests you pick, used to tailor the board and send you notifications."),
+      t("What you post: board posts, items for sale, photos, food tips, events and reports."),
+      t("The contact details you add to a post (email, mobile or social media), and who asked to see them."),
+      t("Messages you send the abroadboard team, and category requests."),
+    ])}
+    <h3>${t("Who can see it")}</h3>
+    ${list([
+      t("Posts, photos, events, your display name and home country are public on this site."),
+      t("Contact details on a post are hidden. Only students you approve, and the site admins, can see them."),
+      t("Your sign-in email address and your interests are never shown publicly."),
+      t("Reports and messages to the team are seen only by you and the site admins."),
+    ])}
+    <h3>${t("Where it's kept and for how long")}</h3>
+    ${list([
+      t("Data and photos are stored with Supabase in its Seoul, South Korea region. The site is hosted by Vercel."),
+      t("Posts and their photos are deleted automatically after {days} days, and events about a week after they happen.", { days: EXPIRY_DAYS }),
+      t("Your account stays until you ask us to delete it."),
+    ])}
+    <h3>${t("Your rights")}</h3>
+    <p>${t("Under the New Zealand Privacy Act 2020 you can ask to see, correct or delete your information at any time. To do that, {contact}. We don't sell your data or use it for advertising profiles.", { contact })}</p>
+    <p class="muted">${t("Notice version {v}", { v: esc(PRIVACY_VERSION) })}${getLang() === "en" ? "" : " " + t("(If this translation differs from the English, the English version applies.)")}</p>`;
 }
 
 const institutionList = () => `<details class="domains"><summary>${t("Accepted student emails ({n} institutions)", { n: INSTITUTIONS.length })}</summary><ul>${
@@ -415,7 +472,23 @@ function renderJoin() {
           <div class="field"><label for="pCountry">${t("Home country")}</label><input id="pCountry" maxlength="40" value="${esc(u.country)}" placeholder="${t("Optional")}"></div>
         </div>
         <div class="actions"><button class="btn btn-ghost" type="button" id="signout2">${t("Sign out")}</button><button class="btn btn-primary" type="submit">${t("Save")}</button></div>
-      </form>`;
+      </form>
+      <form id="prefForm" class="pref-box" novalidate>
+        <h2>${t("Your interests")}</h2>
+        <p>${t("Choose the categories you care about. The board's <b>Only your interests</b> button shows just these, and the bell tells you when someone posts in one.")}</p>
+        ${interestPicker(u.interests || [], "p")}
+        <label class="consent"><input type="checkbox" id="pNotify" ${u.notifyInterests !== false ? "checked" : ""}><span>${t("Notify me about new posts in my interests")}</span></label>
+        <div class="actions"><button class="btn btn-primary" type="submit">${t("Save interests")}</button></div>
+      </form>
+      <section class="pref-box" id="notifBox"><h2>${t("Notifications")}</h2><div id="notifList"></div></section>`;
+    $("#prefForm").onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await db.updateProfile(u.id, { interests: readInterests("p"), notifyInterests: $("#pNotify").checked });
+        await refreshUser(); loadNotifications(); toast("Interests saved");
+      } catch (err) { toast(err.message); }
+    };
+    renderNotifList($("#notifList"));
     $("#signout2").onclick = async () => { await db.signOut(); toast("Signed out"); };
     $("#profileForm").onsubmit = async (e) => {
       e.preventDefault();
@@ -466,7 +539,7 @@ function renderJoin() {
       try {
         await db.signIn(j.email, password);
         state.join = freshJoin();
-        await refreshUser(); loadReports(); loadContacts();
+        await refreshUser(); loadMine();
         toast("Welcome back!");
         const next = state.afterJoin; state.afterJoin = null;
         if (next && state.user?.aucklandConfirmed) { location.hash = "#" + next.view; setTimeout(() => openDialog(next.kind), 60); }
@@ -487,6 +560,9 @@ function renderJoin() {
           <div class="field"><label for="jName">${t("Display name")}</label><input id="jName" maxlength="40" placeholder="${t("e.g. Mei")}" value="${esc(j.name)}"></div>
           <div class="field"><label for="jCountry">${t("Home country")}</label><input id="jCountry" maxlength="40" placeholder="${t("Optional")}" value="${esc(j.country)}"></div>
         </div>
+        <div class="field"><span class="label">${t("What are you interested in?")}</span>
+          <span class="hint">${t("Pick as many as you like. We'll notify you about new posts in these categories, and you can change them any time.")}</span>
+          ${interestPicker(j.interests, "j")}</div>
         <div class="privacy-box" id="privacyBox"><h2>${t("Privacy notice")}</h2>${privacyNotice()}</div>
         <label class="consent"><input type="checkbox" id="jConsent" ${j.consent ? "checked" : ""}>
           <span>${t("I have read the privacy notice and agree to abroadboard collecting and using my information as described.")}</span></label>
@@ -500,14 +576,14 @@ function renderJoin() {
     $("#joinForm").onsubmit = async (e) => {
       e.preventDefault();
       Object.assign(j, { email: $("#jEmail").value.trim(), name: $("#jName").value.trim(), country: $("#jCountry").value.trim(),
-        campus: $("#jCampus").value, auckland: $("#jAuckland").checked, consent: $("#jConsent").checked, error: "" });
+        campus: $("#jCampus").value, auckland: $("#jAuckland").checked, consent: $("#jConsent").checked, interests: readInterests("j"), error: "" });
       const stop = (msg, focus) => { j.error = msg; renderJoin(); $(focus).focus(); };
       if (!isStudentEmail(j.email)) return stop("That email isn't from an accepted institution. Open the list under the email box to see which addresses work.", "#jEmail");
       if (!j.campus) return stop("Choose the area of Auckland you study in.", "#jCampus");
       if (!j.auckland) return stop("Tick the box to confirm you study in Auckland.", "#jAuckland");
       if (!j.consent) return stop("Tick the box to agree to the privacy notice before joining.", "#jConsent");
       j.busy = true; renderJoin();
-      savePending({ email: j.email, name: j.name, country: j.country, campus: j.campus });
+      savePending({ email: j.email, name: j.name, country: j.country, campus: j.campus, interests: j.interests });
       try { await db.sendCode(j.email, { campus: j.campus }); j.stage = "code"; }
       catch (err) { j.error = err.message; }
       j.busy = false; renderJoin();
@@ -540,10 +616,11 @@ function renderJoin() {
         await db.verifyCode(j.email, code);
         try { localStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
         const u = await db.currentUser();
-        if (u && (j.name || j.country)) await db.updateProfile(u.id, { name: j.name, country: j.country });
+        if (u && (j.name || j.country || j.interests.length))
+          await db.updateProfile(u.id, { name: j.name, country: j.country, interests: j.interests.length ? j.interests : undefined });
         if (u && !u.aucklandConfirmed && j.campus && j.auckland) await db.confirmAuckland(j.campus);
         state.join = freshJoin();
-        await refreshUser(); loadReports(); loadContacts();
+        await refreshUser(); loadMine();
         toast("Email verified. Welcome to abroadboard!");
         const next = state.afterJoin; state.afterJoin = null;
         if (next) { location.hash = "#" + next.view; setTimeout(() => openDialog(next.kind), 60); }
@@ -629,14 +706,15 @@ const audienceFields = () => `<details class="more-box"><summary>${t("Who is thi
   </details>`;
 
 function openDialog(kind) {
-  const view = { post: "board", market: "market", event: "events", food: "food" }[kind];
+  if (dlg.open) dlg.close();
+  const view = { post: "board", market: "market", event: "events", food: "food", category: "board" }[kind];
   if (!state.user) {
     state.afterJoin = { kind, view };
     location.hash = "#join";
     toast("Sign in with your student email to post");
     return;
   }
-  if (!state.user.aucklandConfirmed) {
+  if (!state.user.aucklandConfirmed && kind !== "category") {
     state.afterJoin = { kind, view };
     location.hash = "#join";
     toast(NOT_CONFIRMED);
@@ -648,12 +726,18 @@ function openDialog(kind) {
     html = `<h2>${t("New post")}</h2>
       <div class="guide">${t("<b>What to include:</b> what you're looking for, when and where. Never share your home address or passport details.")}</div>
       ${field("fTitle", "Title", `<input id="fTitle" maxlength="120" placeholder="${t("e.g. Looking for badminton partners")}">`)}
-      <div class="row2">${field("fCat", "Category", `<select id="fCat">${CATEGORIES.map((c) => `<option value="${esc(c)}">${esc(t(c))}</option>`).join("")}<option value="__custom">${t("Other…")}</option></select>`)}
-      ${field("fCustom", "Custom category", `<input id="fCustom" maxlength="30" placeholder="${t("e.g. Sports")}" disabled>`)}</div>
+      <div class="row2">${field("fCat", "Category", `<select id="fCat">${categoryOptions(state.filter !== "All" ? state.filter : "Coffee and chat")}</select>`)}
+      <div id="fSportBox" ${state.filter === "Sports" ? "" : "hidden"}>${field("fSport", "Sport", `<select id="fSport">${sportOptions(state.sport !== "All" ? state.sport : "")}</select>`)}</div></div>
+      <p class="hint">${t("No category that fits? Pick Other, or")} <a href="#board" data-new="category">${t("request a new category")}</a>.</p>
       ${field("fBody", "Details", `<textarea id="fBody" maxlength="2000"></textarea>`)}
       ${audienceFields()}
       ${contactFields()}
       ${photoField()}`;
+  } else if (kind === "category") {
+    html = `<h2>${t("Request a category")}</h2>
+      <div class="guide">${t("Tell us what's missing. An admin will check your request, and you'll get a notification when it's approved or declined.")}</div>
+      ${field("fTitle", "Category name", `<input id="fTitle" maxlength="30" placeholder="${t("e.g. Music and jamming")}">`)}
+      ${field("fBody", "Why is it useful? (optional)", `<textarea id="fBody" maxlength="300" style="min-height:80px"></textarea>`)}`;
   } else if (kind === "market") {
     html = `<h2>${t("Sell something")}</h2>
       <div class="guide">${t("<b>Tip:</b> a clear photo and an honest condition sell faster. Meet in a public place on or near campus.")}</div>
@@ -679,11 +763,11 @@ function openDialog(kind) {
       ${field("fPrice", "Rough cost", `<input id="fPrice" maxlength="30" placeholder="${t("e.g. ~$8")}">`)}
       ${photoField()}`;
   }
-  form.innerHTML = html + `<p class="err" id="fErr" hidden></p><div class="actions"><button class="btn btn-ghost" type="button" id="fCancel">${t("Cancel")}</button><button class="btn btn-primary" type="submit" id="fSubmit">${kind === "event" ? t("Pay ${fee} and publish", { fee: EVENT_FEE_NZD }) : t("Publish")}</button></div>`;
+  form.innerHTML = html + `<p class="err" id="fErr" hidden></p><div class="actions"><button class="btn btn-ghost" type="button" id="fCancel">${t("Cancel")}</button><button class="btn btn-primary" type="submit" id="fSubmit">${kind === "event" ? t("Pay ${fee} and publish", { fee: EVENT_FEE_NZD }) : kind === "category" ? t("Send request") : t("Publish")}</button></div>`;
   form.dataset.kind = kind;
   $("#fCancel").onclick = () => dlg.close();
   const cat = $("#fCat");
-  if (cat && kind === "post") cat.onchange = () => { const c = $("#fCustom"); c.disabled = cat.value !== "__custom"; if (!c.disabled) c.focus(); };
+  if (cat && kind === "post") cat.onchange = () => { $("#fSportBox").hidden = cat.value !== "Sports"; };
   const pick = $("#fPhotos");
   if (pick) { pick.onchange = async () => { await addPhotos([...pick.files]); pick.value = ""; }; renderPhotoPreview(); }
   form.querySelectorAll("[data-method]").forEach((cb) => (cb.onchange = () => {
@@ -694,6 +778,8 @@ function openDialog(kind) {
 }
 dlg.addEventListener("close", clearPhotos);
 form.addEventListener("click", (e) => {
+  const nw = e.target.closest("[data-new]");
+  if (nw) { e.preventDefault(); openDialog(nw.dataset.new); return; }
   const x = e.target.closest("[data-unphoto]");
   if (!x) return;
   const [p] = state.photos.splice(Number(x.dataset.unphoto), 1);
@@ -716,7 +802,7 @@ form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const kind = form.dataset.kind, v = (id) => ($(id)?.value || "").trim(), err = $("#fErr");
   const fail = (m) => { err.textContent = t(m); err.hidden = false; };
-  const required = kind === "event" ? ["#fTitle", "#fDate", "#fVenue", "#fBody"] : kind === "market" ? ["#fTitle", "#fPrice", "#fBody"] : ["#fTitle", "#fBody"];
+  const required = kind === "event" ? ["#fTitle", "#fDate", "#fVenue", "#fBody"] : kind === "market" ? ["#fTitle", "#fPrice", "#fBody"] : kind === "category" ? ["#fTitle"] : ["#fTitle", "#fBody"];
   if (required.some((id) => !v(id))) return fail(kind === "market" && !v("#fPrice") && v("#fTitle") && v("#fBody") ? "Add a price, or write Free." : "Fill in every field before publishing.");
 
   const btn = $("#fSubmit"), label = btn.textContent;
@@ -726,18 +812,26 @@ form.addEventListener("submit", async (e) => {
     if (kind === "post" || kind === "market") {
       const { contacts, error } = readContacts();
       if (error) return fail(error);
-      let category = v("#fCat");
-      if (category === "__custom") { category = v("#fCustom"); if (!category) return fail("Type a custom category or pick one from the list."); }
+      const category = v("#fCat");
       busy(true);
-      const base = { category, title: v("#fTitle"), body: v("#fBody"), contacts, ...readAudience() };
+      const base = { category, sport: kind === "post" && category === "Sports" ? v("#fSport") : null,
+        title: v("#fTitle"), body: v("#fBody"), contacts, ...readAudience() };
       if (kind === "post") {
         await db.createPost({ ...base, section: "board" }, blobs);
-        state.filter = "All"; dlg.close(); toast("Published to the board"); loadPosts();
+        state.filter = "All"; state.onlyMine = false; dlg.close(); toast("Published to the board"); loadPosts();
       } else {
         await db.createPost({ ...base, section: "market", price: v("#fPrice"), condition: v("#fCond") }, blobs);
         state.marketFilter = "All"; dlg.close(); toast("Your item is listed"); loadMarket();
       }
       loadContacts();
+    } else if (kind === "category") {
+      const name = v("#fTitle");
+      if (name.length < 2) return fail("Type a category name.");
+      const all = [...CATEGORIES, ...state.categoryRequests.map((r) => r.name)].map((c) => c.toLowerCase());
+      if (all.includes(name.toLowerCase())) return fail("That category already exists or has already been requested.");
+      busy(true);
+      await db.requestCategory(name, v("#fBody"));
+      dlg.close(); toast("Thanks. An admin will review your request."); loadCategories();
     } else if (kind === "event") {
       if (v("#fDate") < todayISO()) return fail("Pick today or a date in the future.");
       busy(true);
@@ -778,16 +872,35 @@ photoDlg.addEventListener("click", (e) => {
 // ---------------------------------------------------------------- clicks
 document.addEventListener("click", async (e) => {
   if (e.target.closest("#dlgForm")) return;
-  const el = e.target.closest("[data-cat],[data-report],[data-clear],[data-del],[data-del-confirm],[data-del-cancel],[data-new],[data-photo],[data-request],[data-answer]");
+  const el = e.target.closest("[data-cat],[data-report],[data-clear],[data-del],[data-del-confirm],[data-del-cancel],[data-new],[data-photo],[data-request],[data-answer],[data-sugg],[data-notif],[data-notif-read],[data-notif-clear],[data-thread-status],[data-cat-answer]");
   if (!el) return;
-  if (el.tagName === "A") e.preventDefault(); // intro links that open "New post"
   const d = el.dataset;
+  if (el.tagName === "A" && d.notif === undefined) e.preventDefault(); // intro links that open "New post"
   try {
     if (d.cat !== undefined) {
       if (el.closest("#view-market")) { state.marketFilter = d.cat; renderMarket(); }
       else { state.filter = d.cat; renderBoard(); }
     }
     else if (d.new) openDialog(d.new);
+    else if (d.sugg !== undefined) {
+      const market = !!el.closest("#view-market"), input = $(market ? "#mq" : "#q");
+      input.value = d.sugg;
+      if (market) { state.marketQuery = d.sugg; renderMarket(); $("#mqSuggest").hidden = true; }
+      else { state.query = d.sugg; renderBoard(); $("#qSuggest").hidden = true; }
+      input.focus();
+    }
+    else if (d.notif) { toggleBell(false); markAllRead(); /* the link itself navigates */ }
+    else if (d.notifRead !== undefined) markAllRead();
+    else if (d.notifClear !== undefined) { await db.clearNotifications(); await loadNotifications(); }
+    else if (d.threadStatus) {
+      const [id, status] = d.threadStatus.split(":");
+      await db.setThreadStatus(Number(id), status); await loadThreads(); toast(status === "closed" ? "Marked as resolved" : "Reopened");
+    }
+    else if (d.catAnswer) {
+      const [id, status] = d.catAnswer.split(":");
+      el.disabled = true;
+      await db.answerCategoryRequest(Number(id), status); await loadCategories(); toast(status === "approved" ? "Category approved" : "Request declined");
+    }
     else if (d.photo) openPhoto(d.photo);
     else if (d.request) {
       if (!state.user) { location.hash = "#join"; toast("Sign in to request contact details"); return; }
@@ -818,34 +931,240 @@ document.addEventListener("click", async (e) => {
   } catch (ex) { state.confirmDelete = null; rerenderLists(); toast(ex.message); }
 });
 
-$("#q").addEventListener("input", (e) => { state.query = e.target.value; renderBoard(); });
-$("#mq").addEventListener("input", (e) => { state.marketQuery = e.target.value; renderMarket(); });
+$("#q").addEventListener("input", (e) => { state.query = e.target.value; renderBoard(); renderSuggest("#qSuggest", state.posts || [], state.query); });
+$("#mq").addEventListener("input", (e) => { state.marketQuery = e.target.value; renderMarket(); renderSuggest("#mqSuggest", state.market || [], state.marketQuery); });
+// Hide suggestions when focus leaves the search box (but not when a suggestion is clicked).
+["#q", "#mq"].forEach((id) => $(id).addEventListener("blur", () => setTimeout(() => {
+  const box = $(id + "Suggest"); if (!box.contains(document.activeElement)) box.hidden = true;
+}, 150)));
+$("#catSel").addEventListener("change", (e) => { state.filter = e.target.value; state.sport = "All"; renderBoard(); });
+$("#sportSel").addEventListener("change", (e) => { state.sport = e.target.value; renderBoard(); });
+$("#genderSel").addEventListener("change", (e) => { state.gender = e.target.value; renderBoard(); });
+$("#mineBtn").addEventListener("click", () => {
+  if (!state.user) { location.hash = "#join"; toast("Sign in to see posts in your interests"); return; }
+  state.onlyMine = !state.onlyMine; renderBoard();
+});
+
+// ---------------------------------------------------------------- notifications (FC-35)
+function notifText(n) {
+  if (n.kind === "post") return t("New post in <b>{cat}</b>: {title}", { cat: esc(t(n.detail)), title: esc(t(n.title)) });
+  if (n.kind === "reply") return t("An admin replied to your message: {title}", { title: esc(n.title) });
+  if (n.kind === "category") return n.detail === "approved"
+    ? t("Your category <b>{name}</b> was approved", { name: esc(n.title) })
+    : t("Your category <b>{name}</b> was declined", { name: esc(n.title) });
+  return esc(n.title);
+}
+const notifLink = (n) => (n.kind === "post" && n.postId ? `#post-${n.postId}` : n.kind === "reply" ? "#contact" : "#board");
+
+function renderNotifList(box) {
+  if (!box) return;
+  const list = state.notifications;
+  box.innerHTML = list.length
+    ? `<ul class="notifs">${list.map((n) => `<li class="${n.read ? "" : "unread"}"><a href="${notifLink(n)}" data-notif="${n.id}">${notifText(n)}</a><span class="muted small">${timeAgo(n.createdAt)}</span></li>`).join("")}</ul>
+       <div class="notif-actions"><button class="link-btn" type="button" data-notif-read>${t("Mark all as read")}</button><button class="link-btn" type="button" data-notif-clear>${t("Clear all")}</button></div>`
+    : `<p class="muted">${t("No notifications yet. Pick some interests and we'll tell you when someone posts in them.")}</p>`;
+}
+
+function renderBell() {
+  if (!db) return;
+  const unread = state.notifications.filter((n) => !n.read).length;
+  const badge = $("#bellCount");
+  badge.hidden = !unread; badge.textContent = unread > 9 ? "9+" : String(unread);
+  $("#bellBtn").setAttribute("aria-label", unread ? t("Notifications, {n} new", { n: unread }) : t("Notifications"));
+  const panel = $("#bellPanel");
+  if (!panel.hidden) { panel.innerHTML = `<h4>${t("Notifications")}</h4><div></div>`; renderNotifList(panel.lastElementChild); }
+  renderNotifList($("#notifList"));
+}
+function toggleBell(open) {
+  const panel = $("#bellPanel");
+  panel.hidden = !open;
+  $("#bellBtn").setAttribute("aria-expanded", String(open));
+  if (open) renderBell();
+}
+$("#bellBtn").addEventListener("click", (e) => { e.stopPropagation(); toggleBell($("#bellPanel").hidden); });
+document.addEventListener("click", (e) => { if (!e.target.closest("#bellWrap")) toggleBell(false); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { toggleBell(false); $("#qSuggest").hidden = true; $("#mqSuggest").hidden = true; } });
+
+async function markAllRead() {
+  if (!state.notifications.some((n) => !n.read)) return;
+  state.notifications.forEach((n) => (n.read = true));
+  renderBell();
+  try { await db.markNotificationsRead(); } catch { /* shown as read anyway */ }
+}
+
+// ---------------------------------------------------------------- contact the admins (FC-37)
+const kindLabel = (k) => t(THREAD_KINDS[k] || k);
+function threadCard(th, admin) {
+  const last = th.messages[th.messages.length - 1];
+  const waiting = th.status === "open" && last && !last.fromAdmin;
+  const state_ = th.status === "closed" ? `<span class="pill soft">${t("Closed")}</span>`
+    : waiting ? `<span class="pill warn">${t(admin ? "Needs a reply" : "Waiting for an admin")}</span>` : `<span class="pill ok">${t("Admin replied")}</span>`;
+  return `<article class="thread" id="thread-${th.id}">
+    <div class="post-head"><span class="tag">${esc(kindLabel(th.kind))}</span>${admin ? `<span>${esc(th.userName)}${th.userCountry ? " · " + esc(th.userCountry) : ""}</span><span>·</span>` : ""}<span>${timeAgo(th.updatedAt)}</span><span class="grow"></span>${state_}</div>
+    <h3>${esc(th.subject)}</h3>
+    <ol class="msgs">${th.messages.map((m) => `<li class="${m.fromAdmin ? "from-admin" : "from-student"}"><span class="who-said">${m.fromAdmin ? t("abroadboard team") : admin ? esc(th.userName) : t("You")} · ${timeAgo(m.createdAt)}</span><p>${esc(m.body)}</p></li>`).join("")}</ol>
+    <form class="reply-form" data-reply="${th.id}" novalidate>
+      <label class="sr-only" for="r${th.id}">${t("Write a reply")}</label>
+      <textarea id="r${th.id}" maxlength="2000" placeholder="${t(admin ? "Write a reply to the student" : "Add to this conversation")}"></textarea>
+      <div class="actions">${admin ? `<button class="btn btn-ghost btn-sm" type="button" data-thread-status="${th.id}:${th.status === "closed" ? "open" : "closed"}">${t(th.status === "closed" ? "Reopen" : "Mark as resolved")}</button>` : ""}
+        <button class="btn btn-primary btn-sm" type="submit">${t(admin ? "Send reply" : "Send")}</button></div>
+    </form>
+  </article>`;
+}
+
+function renderContact() {
+  const box = $("#contactBox");
+  if (!box || !db) return;
+  if (!state.user) {
+    box.innerHTML = `<div class="panel"><h2>${t("Sign in to message the team")}</h2><p>${t("Messages are linked to your profile so we can reply to you here.")}</p>
+      <div class="actions" style="justify-content:flex-start"><a class="btn btn-primary" href="#join" id="contactSignin">${t("Sign in")}</a></div></div>`;
+    $("#contactSignin").onclick = () => { if (SIGNUP_CODE) { state.join.mode = "signin"; renderJoin(); } };
+    return;
+  }
+  const mine = (state.threads || []).filter((x) => x.userId === state.user.id);
+  box.innerHTML = `<form id="newThread" class="panel thread-new" novalidate>
+      <h2>${t("New message")}</h2>
+      <div class="row2">${field("tKind", "What is it about?", `<select id="tKind">${Object.entries(THREAD_KINDS).map(([k, v]) => `<option value="${k}">${esc(t(v))}</option>`).join("")}</select>`)}
+      ${field("tSubject", "Subject", `<input id="tSubject" maxlength="120" placeholder="${t("e.g. A post asked me for money")}">`)}</div>
+      ${field("tBody", "Message", `<textarea id="tBody" maxlength="2000" placeholder="${t("Tell us what happened. If it's about a post, include its title.")}"></textarea>`)}
+      <p class="err" id="tErr" hidden></p>
+      <div class="actions"><button class="btn btn-primary" type="submit">${t("Send message")}</button></div>
+    </form>
+    <h2 class="sub-h">${t("Your messages")}</h2>
+    ${state.errors.threads ? `<div class="error-box">${esc(t(state.errors.threads))}</div>` : ""}
+    ${mine.length ? mine.map((x) => threadCard(x, false)).join("") : `<p class="muted">${t("You haven't sent any messages yet.")}</p>`}`;
+  $("#newThread").onsubmit = async (e) => {
+    e.preventDefault();
+    const err = $("#tErr"), subject = $("#tSubject").value.trim(), body = $("#tBody").value.trim();
+    if (!subject || !body) { err.textContent = t("Add a subject and a message."); err.hidden = false; return; }
+    e.submitter && (e.submitter.disabled = true);
+    try { await db.startThread($("#tKind").value, subject, body); toast("Message sent. We'll reply here."); await loadThreads(); }
+    catch (ex) { err.textContent = t(ex.message); err.hidden = false; if (e.submitter) e.submitter.disabled = false; }
+  };
+}
+
+// ---------------------------------------------------------------- admin page
+function renderAdmin() {
+  const box = $("#adminBox");
+  if (!box || !db) return;
+  const threads = state.threads || [];
+  const needReply = threads.filter((x) => x.status === "open" && !x.messages[x.messages.length - 1]?.fromAdmin).length;
+  const pending = state.categoryRequests.filter((r) => r.status === "pending");
+  $("#adminTab").innerHTML = esc(t("Admin")) + (needReply + pending.length ? ` <span class="badge inline">${needReply + pending.length}</span>` : "");
+  document.querySelectorAll("[data-admin-tab]").forEach((b) => {
+    b.setAttribute("aria-selected", String(b.dataset.adminTab === state.adminTab));
+    const n = b.dataset.adminTab === "messages" ? needReply : pending.length;
+    b.innerHTML = esc(t(b.dataset.adminTab === "messages" ? "Messages" : "Category requests")) + (n ? ` <span class="badge inline">${n}</span>` : "");
+  });
+  if (!state.user?.isAdmin) { box.innerHTML = `<p class="empty">${t("Only admins can see this page.")}</p>`; return; }
+  if (state.adminTab === "messages") {
+    const sorted = [...threads].sort((a, b) => (a.status === "closed") - (b.status === "closed") || b.updatedAt - a.updatedAt);
+    box.innerHTML = sorted.length ? sorted.map((x) => threadCard(x, true)).join("") : `<p class="empty">${t("No messages from students yet.")}</p>`;
+  } else {
+    const row = (r) => `<li class="req"><span><b>${esc(r.name)}</b> · ${esc(r.requesterName)}${r.reason ? `<br><span class="muted small">${esc(r.reason)}</span>` : ""}</span>
+      <span class="req-btns">${r.status === "pending"
+        ? `<button class="btn btn-primary btn-sm" data-cat-answer="${r.id}:approved">${t("Approve")}</button><button class="btn btn-ghost btn-sm" data-cat-answer="${r.id}:declined">${t("Decline")}</button>`
+        : `<span class="pill ${r.status === "approved" ? "ok" : "soft"}">${t(r.status === "approved" ? "Approved" : "Declined")}</span>`}</span></li>`;
+    const done = state.categoryRequests.filter((r) => r.status !== "pending");
+    box.innerHTML = `<h2 class="sub-h">${t("Waiting for review")}</h2>
+      ${pending.length ? `<ul class="requests">${pending.map(row).join("")}</ul>` : `<p class="muted">${t("No category requests waiting.")}</p>`}
+      ${done.length ? `<h2 class="sub-h">${t("Answered")}</h2><ul class="requests">${done.map(row).join("")}</ul>` : ""}`;
+  }
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-admin-tab]");
+  if (b) { state.adminTab = b.dataset.adminTab; renderAdmin(); }
+});
+document.addEventListener("submit", async (e) => {
+  const f = e.target.closest("[data-reply]");
+  if (!f) return;
+  e.preventDefault();
+  const body = f.querySelector("textarea").value.trim();
+  if (!body) return;
+  const btn = f.querySelector("[type=submit]"); btn.disabled = true;
+  try { await db.replyThread(Number(f.dataset.reply), body); toast("Sent"); await loadThreads(); }
+  catch (ex) { btn.disabled = false; toast(ex.message); }
+});
+
+// ---------------------------------------------------------------- campus map (FC-38)
+let mapPlace = 0;
+function renderMap() {
+  const q = encodeURIComponent(MAP_PLACES[mapPlace].query);
+  const frame = $("#mapFrame");
+  const src = `https://maps.google.com/maps?q=${q}&z=16&hl=${getLang() === "zh" ? "zh-CN" : getLang()}&output=embed`;
+  if (frame.getAttribute("src") !== src) frame.setAttribute("src", src);
+  frame.title = t("Map of {place}", { place: t(MAP_PLACES[mapPlace].name) });
+  $("#mapOpen").href = `https://www.google.com/maps/search/?api=1&query=${q}`;
+  $("#mapPlaces").innerHTML = MAP_PLACES.map((p, i) => `<button type="button" class="chip" aria-pressed="${i === mapPlace}" data-place="${i}">${esc(t(p.name))}</button>`).join("");
+}
+$("#mapPlaces").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-place]");
+  if (b) { mapPlace = Number(b.dataset.place); renderMap(); }
+});
+
+// ---------------------------------------------------------------- light / dark theme (FC-32)
+const THEME_KEY = "abroadboard-theme";
+const darkQuery = matchMedia("(prefers-color-scheme: dark)");
+const currentTheme = () => document.documentElement.dataset.theme || (darkQuery.matches ? "dark" : "light");
+function renderTheme() {
+  const dark = currentTheme() === "dark";
+  const b = $("#themeBtn");
+  b.innerHTML = dark
+    ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`
+    : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`;
+  const label = t(dark ? "Switch to light theme" : "Switch to dark theme");
+  b.setAttribute("aria-label", label); b.title = label;
+  document.querySelector('meta[name="theme-color"]').content = dark ? "#1C0413" : "#45062E";
+}
+$("#themeBtn").addEventListener("click", () => {
+  const next = currentTheme() === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem(THEME_KEY, next); } catch { /* storage blocked */ }
+  renderTheme();
+});
+darkQuery.addEventListener?.("change", renderTheme);
 
 // ---------------------------------------------------------------- routing
 function route() {
   const v = location.hash.slice(1);
-  const view = VIEWS.includes(v) ? v : "board";
+  const post = /^post-(\d+)$/.exec(v);
+  if (post) {
+    // Link from a notification: show the board with that post in view.
+    const id = Number(post[1]);
+    const inMarket = state.market?.some((p) => p.id === id);
+    if (!inMarket) Object.assign(state, { filter: "All", sport: "All", gender: "all", onlyMine: false, query: "" });
+    else Object.assign(state, { marketFilter: "All", marketQuery: "" });
+    $(inMarket ? "#mq" : "#q").value = "";
+    state.jumpTo = id;
+    showView(inMarket ? "market" : "board");
+    if (inMarket) { renderMarket(); $(`#post-${id}`)?.scrollIntoView({ block: "center" }); state.jumpTo = null; }
+    else renderBoard();
+    if (state.jumpTo && state.posts) { toast("That post has expired or been removed."); state.jumpTo = null; }
+    return;
+  }
+  showView(VIEWS.includes(v) ? v : "board");
+}
+function showView(view) {
   document.querySelectorAll(".view").forEach((s) => (s.hidden = s.id !== "view-" + view));
   document.querySelectorAll("nav.tabs a").forEach((a) => {
     if (a.dataset.view === view) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
   });
 }
-window.addEventListener("hashchange", () => { route(); window.scrollTo(0, 0); });
+window.addEventListener("hashchange", () => { if (!location.hash.startsWith("#post-")) window.scrollTo(0, 0); route(); });
 
-// ---------------------------------------------------------------- language (English / 中文)
+// ---------------------------------------------------------------- language menu (FC-31)
 function renderLang() {
-  const b = $("#langBtn");
-  const zh = getLang() === "zh";
-  b.textContent = zh ? "English" : "中文";
-  b.lang = zh ? "en" : "zh-Hans";
-  b.setAttribute("aria-label", zh ? "Switch to English" : "切换到中文");
+  const sel = $("#langSel");
+  sel.innerHTML = LANGS.map((l) => `<option value="${l.code}" lang="${l.html}"${l.code === getLang() ? " selected" : ""}>${l.label}</option>`).join("");
+  sel.setAttribute("aria-label", t("Language"));
   $("#privacyPage").innerHTML = privacyNotice();
+  renderTheme(); renderMap();
 }
-$("#langBtn").addEventListener("click", () => {
-  setLang(getLang() === "zh" ? "en" : "zh");
+$("#langSel").addEventListener("change", (e) => {
+  setLang(e.target.value);
   renderLang();
   if (dlg.open) dlg.close();
-  if (db) { renderWho(); renderJoin(); rerenderLists(); }
+  if (db) { renderWho(); renderJoin(); rerenderLists(); renderContact(); renderAdmin(); renderBell(); }
 });
 
 // ---------------------------------------------------------------- start
@@ -862,11 +1181,14 @@ async function start() {
     $("#modeBar").hidden = false;
     $("#adminToggle").onclick = async () => {
       if (!state.user) { location.hash = "#join"; toast("Sign in first, then switch to admin view"); return; }
-      db.setAdmin(!state.user?.isAdmin); await refreshUser(); await loadReports(); await loadContacts(); toast(state.user?.isAdmin ? "Admin view on" : "Student view"); };
+      db.setAdmin(!state.user?.isAdmin); await refreshUser(); await loadMine(); toast(state.user?.isAdmin ? "Admin view on" : "Student view"); };
     $("#resetDemo").onclick = async () => { db.reset(); state.filter = "All"; state.marketFilter = "All"; toast("Demo data reset"); await loadAll(); };
   }
-  db.onAuthChange(async () => { await refreshUser(); loadReports(); loadContacts(); });
+  db.onAuthChange(async () => { state.onlyMine = false; await refreshUser(); loadMine(); });
   await refreshUser();
   await loadAll();
+  if (location.hash.startsWith("#post-")) route(); // a notification link opened in a new tab
+  // Check for new notifications and messages every minute while signed in.
+  setInterval(() => { if (state.user && !document.hidden) { loadNotifications(); loadThreads(); } }, 60000);
 }
 start();
