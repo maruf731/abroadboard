@@ -663,4 +663,10 @@ export default {
   "You can only delete your own posts.": "Vous ne pouvez supprimer que vos propres publications.",
   "You can only delete events you posted.": "Vous ne pouvez supprimer que les événements que vous avez publiés.",
   "Privacy notice page": "Page de l'avis de confidentialité",
+  "All categories": "Toutes les catégories",
+  "All sports": "Tous les sports",
+  "All posts": "Toutes les publications",
+  "All": "Tout",
+  "yesterday": "hier",
+  "All levels welcome. We have a bat and tennis balls. Look for the red umbrella near the duck pond.": "Tous les niveaux sont les bienvenus. Nous avons une batte et des balles de tennis. Cherchez le parasol rouge près de la mare aux canards.",
 };

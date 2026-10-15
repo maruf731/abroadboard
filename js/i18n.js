@@ -770,4 +770,7 @@ const ZH = {
   "Approved": "已通过",
   "Declined": "未通过",
   "Switch to light theme": "切换到浅色主题",
+  "All categories": "全部类别",
+  "All sports": "全部运动",
+  "All posts": "全部帖子",
 };
