@@ -11,12 +11,12 @@ const DAY = 864e5;
 const MARKET_CATEGORIES = ["Furniture", "Electronics", "Books & study", "Kitchen", "Clothing", "Bikes & transport", "Other"];
 const CONDITIONS = ["New", "Like new", "Good", "Fair"];
 // Who a post is meant for. Stored as the key; shown as the label.
-const GENDERS = { any: "Anyone", women: "Women", men: "Men", nonbinary: "Non-binary people" };
+const GENDERS = { any: "Anyone", women: "Women", men: "Men" };
 const SLEEPERS = { any: "Any", light: "Light sleepers", heavy: "Heavy sleepers" };
 const METHODS = { email: "Email", mobile: "Mobile", social: "Social media" };
 const VIEWS = ["board", "market", "events", "campus", "food", "faq", "contact", "admin", "join", "privacy"];
 // Gender filter on the board (FC-36): which posts to show by who they're for.
-const GENDER_FILTER = { all: "All posts", any: "Open to everyone", women: "Women", men: "Men", nonbinary: "Non-binary people" };
+const GENDER_FILTER = { all: "All posts", any: "Open to everyone", women: "Women", men: "Men" };
 // Kinds of message students can send the admins (FC-37).
 const THREAD_KINDS = { contact: "Question or feedback", complaint: "Complaint", report: "Report a post or a person", other: "Something else" };
 const NOT_CONFIRMED = "Confirm that you study in Auckland (on your account page) before posting.";
